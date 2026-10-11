@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Momentum Desk — Revenue Operations",
-  description: "From lead to collected cash in one focused workspace.",
+  title: "MomentumDesk — AI Revenue Operations",
+  description:
+    "Leads. Quotes. Invoices. Payments. Collections. One desk for turning enquiries into revenue.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
