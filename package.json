@@ -8,12 +8,22 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:db": "vitest run --project db",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:check": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "next": "16.3.8",
+    "pg": "^8.23.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zod": "^4.6.5"
@@ -21,10 +31,12 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "prisma": "7.10.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.3"

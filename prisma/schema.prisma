@@ -1,0 +1,157 @@
+// MomentumDesk database schema.
+//
+// User, Session, Account, Verification, Organization, Member and Invitation
+// follow the shape Better Auth 1.7 (with the organization plugin) expects, so
+// authentication can use these tables without renaming. Organization carries
+// the global settings from docs/product-spec.md §5.1 as extra columns.
+//
+// Database-level CHECK constraints (currency, country and role formats) live
+// in the migration SQL because Prisma's schema language cannot express them.
+// After changing this file run `pnpm db:migrate` to create a migration.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  sessions    Session[]
+  accounts    Account[]
+  memberships Member[]
+  invitations Invitation[] @relation("InvitationInviter")
+
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id
+  token                String   @unique
+  expiresAt            DateTime @db.Timestamptz(3)
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  /// The organization the user is currently working in. Never trusted on its
+  /// own: membership is re-checked server-side on every request.
+  activeOrganizationId String?
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  /// Password hash for email/password sign-in. Never a plaintext password.
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// A tenant. Every business record belongs to exactly one organization.
+model Organization {
+  id        String    @id
+  name      String
+  slug      String    @unique
+  logo      String?
+  metadata  String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime? @updatedAt @db.Timestamptz(3)
+
+  // Global settings (spec §5.1). None is inferred from another: a company can
+  // be in one country, report in another currency and invoice in several.
+  /// ISO 4217 reporting currency, e.g. "USD". Must be in lib/money/currencies.ts.
+  baseCurrency           String
+  /// ISO 3166-1 alpha-2 country code, e.g. "NG".
+  countryCode            String
+  /// BCP 47 locale for formatting, e.g. "en-GB".
+  locale                 String
+  /// IANA timezone, e.g. "Europe/London".
+  timezone               String
+  /// BCP 47 language for the interface and customer documents, e.g. "en".
+  defaultLanguage        String
+  /// Optional ISO 4217 default for new quotes and invoices.
+  defaultInvoiceCurrency String?
+
+  members     Member[]
+  invitations Invitation[]
+
+  @@map("organization")
+}
+
+/// A user's membership of an organization. One row per (organization, user).
+model Member {
+  id             String   @id
+  organizationId String
+  userId         String
+  /// One of the roles in docs/product-spec.md §10 (owner, admin, sales,
+  /// finance, member). Permissions are resolved from it server-side.
+  role           String   @default("member")
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String    @id
+  organizationId String
+  email          String
+  role           String
+  /// "pending", "accepted", "rejected" or "canceled".
+  status         String    @default("pending")
+  expiresAt      DateTime? @db.Timestamptz(3)
+  inviterId      String
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter      User         @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}

@@ -1,25 +1,46 @@
 import { describe, expect, it } from "vitest";
 import { InvalidEnvironmentError, parseEnv } from "./env";
 
+const DATABASE_URL = "postgresql://user:pass@localhost:5432/momentum";
+
 describe("parseEnv", () => {
   it("applies defaults when optional variables are absent", () => {
-    expect(parseEnv({})).toEqual({ NODE_ENV: "development" });
+    expect(parseEnv({ DATABASE_URL })).toEqual({ NODE_ENV: "development", DATABASE_URL });
   });
 
   it("accepts a valid configuration", () => {
-    expect(parseEnv({ NODE_ENV: "production", APP_URL: "https://momentumdesk.app" })).toEqual({
+    expect(
+      parseEnv({ NODE_ENV: "production", APP_URL: "https://momentumdesk.app", DATABASE_URL }),
+    ).toEqual({
       NODE_ENV: "production",
       APP_URL: "https://momentumdesk.app",
+      DATABASE_URL,
     });
   });
 
   it("treats empty strings as unset", () => {
-    expect(parseEnv({ APP_URL: "" })).toEqual({ NODE_ENV: "development" });
+    expect(parseEnv({ APP_URL: "", DATABASE_URL })).toEqual({ NODE_ENV: "development", DATABASE_URL });
+  });
+
+  it("accepts both postgres URL schemes", () => {
+    const url = "postgres://user@db.example.neon.tech/momentum?sslmode=require";
+    expect(parseEnv({ DATABASE_URL: url }).DATABASE_URL).toBe(url);
+  });
+
+  it("requires DATABASE_URL", () => {
+    expect(() => parseEnv({})).toThrow(/DATABASE_URL/);
+    expect(() => parseEnv({ DATABASE_URL: "" })).toThrow(/DATABASE_URL/);
+  });
+
+  it("rejects a non-postgres DATABASE_URL", () => {
+    expect(() => parseEnv({ DATABASE_URL: "mysql://user@localhost/momentum" })).toThrow(
+      /DATABASE_URL: must be a postgres/,
+    );
   });
 
   it("reports every invalid variable by name", () => {
     try {
-      parseEnv({ NODE_ENV: "staging", APP_URL: "not a url" });
+      parseEnv({ NODE_ENV: "staging", APP_URL: "not a url", DATABASE_URL });
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(InvalidEnvironmentError);

@@ -5,13 +5,18 @@ import { z } from "zod";
  * deployment fails at startup rather than at first use. Secrets stay
  * server-side: never prefix them with NEXT_PUBLIC_.
  *
- * Variables for the database, authentication and monitoring are added with
- * the features that use them.
+ * Variables for authentication and monitoring are added with the features
+ * that use them.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Public origin of the app, e.g. https://momentumdesk.app. */
   APP_URL: z.url().optional(),
+  /**
+   * PostgreSQL connection string. On Neon use the pooled connection string
+   * for the app; `prisma migrate` works with either.
+   */
+  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: "must be a postgres:// or postgresql:// URL" }),
 });
 
 export type Env = z.infer<typeof envSchema>;

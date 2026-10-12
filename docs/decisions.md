@@ -10,7 +10,7 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 | D2 | Application framework | Accepted | Next.js 16 (App Router), React 19, TypeScript, pnpm | Already bootstrapped. Follow the bundled docs in `node_modules/next/dist/docs/` (see `AGENTS.md`). |
 | D3 | Authentication provider | Accepted | Better Auth (email/password + magic link, organization plugin) | Confirm current version and Prisma adapter support at install time. Alternative considered: Clerk (hosted, faster start, vendor cost, less control). |
 | D4 | Database and hosting | Accepted | PostgreSQL on Neon | Branch-per-preview fits §11 preview/production separation. Backup and recovery procedure to be documented before pilot (M7). |
-| D5 | Typed data layer | Accepted | Prisma | As suggested in §11. |
+| D5 | Typed data layer | Accepted | Prisma 7 (`prisma-client` generator, `@prisma/adapter-pg` driver adapter) | Same adapter for local Postgres, CI and Neon (pooled connection string in the app). All timestamps `timestamptz`. Format CHECK constraints are hand-written in migration SQL. Auth and organization tables follow Better Auth 1.7's expected shape so D3 needs no table renames. |
 | D6 | Testing | Accepted | Vitest (unit/integration), Playwright (end-to-end) | Playwright is added when the first end-to-end flow exists (auth/onboarding). |
 | D7 | CI | Accepted | GitHub Actions: lint, type-check, test, build on every push and pull request | `.github/workflows/ci.yml` |
 | D8 | Error monitoring | Accepted | Sentry | Wired up with authentication in M0. |
@@ -31,3 +31,4 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 ## Change history
 
 - 2026-10-11 — Log created. D3–D9 accepted by the owner from the M0 recommendations. D10, D11 and D21 adopted for the M0 foundation.
+- 2026-10-12 — D5 detailed: Prisma 7.10 with the pg driver adapter; first migration adds auth, organization, membership and invitation tables plus organization settings.
