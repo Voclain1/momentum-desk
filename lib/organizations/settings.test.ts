@@ -44,7 +44,7 @@ describe("organizationSettingsSchema", () => {
     expect(errorPaths({ ...valid, countryCode })).toEqual([]);
   });
 
-  it.each(["gb", "GBR", "ZZ", "QQ", ""])("rejects country %j", (countryCode) => {
+  it.each(["gb", "GBR", "ZZ", "QQ", "EU", "YU", ""])("rejects country %j", (countryCode) => {
     expect(errorPaths({ ...valid, countryCode })).toEqual(["countryCode"]);
   });
 

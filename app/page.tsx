@@ -13,10 +13,10 @@ export default function MarketingHome() {
           MomentumDesk
         </span>
         <Link
-          href="/app"
+          href="/sign-in"
           className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
         >
-          View preview
+          Sign in
         </Link>
       </header>
 
@@ -44,16 +44,16 @@ export default function MarketingHome() {
         </ul>
         <div className="mt-10">
           <Link
-            href="/app"
+            href="/sign-up"
             className="inline-block rounded-lg bg-[#2f8d73] px-5 py-3 text-sm font-bold text-white hover:bg-[#35a083]"
           >
-            Explore the workspace preview →
+            Create your workspace →
           </Link>
         </div>
       </section>
 
       <footer className="mx-auto w-full max-w-5xl px-4 py-6 text-xs text-[#739087] sm:px-6">
-        Product preview · Demo data only
+        Early access · Pilot in progress
       </footer>
     </main>
   );

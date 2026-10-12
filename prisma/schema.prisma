@@ -155,3 +155,15 @@ model Invitation {
   @@index([email])
   @@map("invitation")
 }
+
+/// Request counters for Better Auth's rate limiter. Stored in the database
+/// because in-memory counters are per instance on serverless hosting.
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  /// Milliseconds since the Unix epoch.
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}

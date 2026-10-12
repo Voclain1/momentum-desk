@@ -5,7 +5,7 @@ import { z } from "zod";
  * deployment fails at startup rather than at first use. Secrets stay
  * server-side: never prefix them with NEXT_PUBLIC_.
  *
- * Variables for authentication and monitoring are added with the features
+ * Variables for monitoring and email delivery are added with the features
  * that use them.
  */
 const envSchema = z.object({
@@ -17,6 +17,11 @@ const envSchema = z.object({
    * for the app; `prisma migrate` works with either.
    */
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: "must be a postgres:// or postgresql:// URL" }),
+  /**
+   * Signs and encrypts session cookies and tokens. Generate with
+   * `openssl rand -base64 32`; use a different value per environment.
+   */
+  BETTER_AUTH_SECRET: z.string().min(32, { error: "must be at least 32 characters" }),
 });
 
 export type Env = z.infer<typeof envSchema>;

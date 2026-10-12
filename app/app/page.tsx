@@ -5,8 +5,11 @@ import {
   RevenueFlowPanel,
   TargetProgress,
 } from "./_components/dashboard";
+import { requireWorkspace } from "@/lib/auth/session";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  // Checked here as well as in the layout: layouts do not re-run on every navigation.
+  await requireWorkspace();
   return (
     <>
       <header className="topbar">

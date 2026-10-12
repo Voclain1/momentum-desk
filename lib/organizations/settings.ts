@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isCountryCode } from "@/lib/geo/countries";
 import { isCurrencyCode } from "@/lib/money";
 
 /**
@@ -11,20 +12,16 @@ import { isCurrencyCode } from "@/lib/money";
  * the full rules, so run every settings mutation through it.
  */
 
-const regionNames = new Intl.DisplayNames(["en"], { type: "region", fallback: "none" });
 const languageNames = new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
 
 const currencyCode = z.string().refine(isCurrencyCode, {
   error: "must be a supported ISO 4217 currency code",
 });
 
-/** ISO 3166-1 alpha-2, upper case. "ZZ" (unknown region) is rejected. */
-const countryCode = z
-  .string()
-  .refine(
-    (code) => /^[A-Z]{2}$/.test(code) && code !== "ZZ" && regionNames.of(code) !== undefined,
-    { error: "must be a known upper-case ISO 3166-1 alpha-2 code, e.g. GB" },
-  );
+/** An assigned ISO 3166-1 alpha-2 code, upper case (lib/geo/countries.ts). */
+const countryCode = z.string().refine(isCountryCode, {
+  error: "must be an assigned upper-case ISO 3166-1 alpha-2 code, e.g. GB",
+});
 
 /** A canonical BCP 47 tag the runtime can format numbers and dates with. */
 const locale = z.string().refine(
