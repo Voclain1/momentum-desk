@@ -20,7 +20,10 @@ Done:
 - Workspaces: `/onboarding` creates an organization with its global settings; the creator becomes owner. Roles owner, admin, sales, finance, member (§10); only owners and admins change settings, only owners delete
 - `/app` requires a session and a workspace membership, both checked on the server (`lib/auth/session.ts`); `proxy.ts` only redirects visitors with no session cookie
 
-Next: tenant guard for organization-owned data with cross-tenant tests, invitations and team management, settings page, business permission matrix, audit log, Sentry.
+- Tenant isolation ([`docs/tenant-isolation.md`](docs/tenant-isolation.md)): organization data only through `requireTenant()` / `tenantDb()`, plus Postgres row-level security, with the app connecting as a restricted role. Cross-tenant tests at the unit, database and browser level
+- Audit log: append-only, records workspace creation, settings changes, member and invitation changes with the acting user; shown on the dashboard as Recent activity
+
+Next: invitations and team management UI, settings page, business permission matrix, Sentry, deployment.
 
 **Email is not connected yet** (decision D17). In development, sign-in and reset links are printed in the server log. In production, magic links and password resets fail with a clear error until a provider is chosen; email and password sign-in works.
 
@@ -32,7 +35,11 @@ Needs Node 20.9+, pnpm and PostgreSQL 16 (local, Docker, or a Neon branch).
 pnpm install                  # also generates the Prisma client
 cp .env.example .env.local    # set BETTER_AUTH_SECRET, DATABASE_URL, TEST_DATABASE_URL
 createdb momentum_dev && createdb momentum_test
-pnpm db:deploy                # apply migrations
+pnpm db:deploy                # apply migrations as the owner (MIGRATION_DATABASE_URL)
+# create the restricted app role and grant it access (docs/tenant-isolation.md)
+psql -d momentum_dev -c "CREATE ROLE momentum_app LOGIN PASSWORD 'app' NOSUPERUSER NOBYPASSRLS"
+psql -d momentum_dev -v app_role=momentum_app -f prisma/sql/app-role.sql
+psql -d momentum_test -v app_role=momentum_app -f prisma/sql/app-role.sql
 pnpm dev
 ```
 

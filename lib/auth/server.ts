@@ -1,13 +1,16 @@
+import { tryGetCurrentAuthEndpointContext } from "@better-auth/core/context";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { organization } from "better-auth/plugins/organization";
+import { type AuditEntry, recordAudit } from "@/lib/audit";
 import type { DbClient } from "@/lib/db/client";
 import type { EmailSender } from "@/lib/email";
 import { isValidSlug } from "@/lib/organizations/slug";
 import { organizationSettingsSchema } from "@/lib/organizations/settings";
+import { createTenantDb } from "@/lib/tenant/core";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./constants";
 import { ac, roles } from "./permissions";
 
@@ -36,7 +39,25 @@ function invalidSettings(issues: { path: PropertyKey[]; message: string }[]): ne
   });
 }
 
+/** The signed-in user making the current auth request, if any. */
+function currentActorId(): string | null {
+  return tryGetCurrentAuthEndpointContext()?.context.session?.user.id ?? null;
+}
+
+/** Snapshot of an organization's name, slug and settings for the audit log. */
+function organizationSnapshot(organization: Record<string, unknown>) {
+  const snapshot: Record<string, string | null> = {};
+  for (const field of ["name", "slug", ...SETTINGS_FIELDS] as const) {
+    const value = organization[field];
+    snapshot[field] = typeof value === "string" ? value : null;
+  }
+  return snapshot;
+}
+
 export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig) {
+  const audit = (organizationId: string, entry: AuditEntry) =>
+    recordAudit(createTenantDb(db, organizationId), entry);
+
   return betterAuth({
     appName: "MomentumDesk",
     baseURL,
@@ -122,6 +143,89 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
             >;
             const settings = organizationSettingsSchema.pick(mask).safeParse(organization);
             if (!settings.success) invalidSettings(settings.error.issues);
+          },
+          // Audit trail. A failure to record propagates, so it is never silent.
+          async afterCreateOrganization({ organization, user }) {
+            await audit(organization.id, {
+              action: "organization.created",
+              actorUserId: user.id,
+              targetType: "organization",
+              targetId: organization.id,
+              metadata: organizationSnapshot(organization),
+            });
+          },
+          async afterUpdateOrganization({ organization, user }) {
+            if (!organization) return;
+            await audit(organization.id, {
+              action: "organization.updated",
+              actorUserId: user.id,
+              targetType: "organization",
+              targetId: organization.id,
+              metadata: organizationSnapshot(organization),
+            });
+          },
+          async afterAddMember({ member, organization }) {
+            await audit(organization.id, {
+              action: "member.added",
+              actorUserId: currentActorId(),
+              targetType: "member",
+              targetId: member.id,
+              metadata: { userId: member.userId, role: member.role },
+            });
+          },
+          async afterUpdateMemberRole({ member, previousRole, organization }) {
+            await audit(organization.id, {
+              action: "member.role_updated",
+              actorUserId: currentActorId(),
+              targetType: "member",
+              targetId: member.id,
+              metadata: { userId: member.userId, from: previousRole, to: member.role },
+            });
+          },
+          async afterRemoveMember({ member, organization }) {
+            await audit(organization.id, {
+              action: "member.removed",
+              actorUserId: currentActorId(),
+              targetType: "member",
+              targetId: member.id,
+              metadata: { userId: member.userId, role: member.role },
+            });
+          },
+          async afterCreateInvitation({ invitation, inviter, organization }) {
+            await audit(organization.id, {
+              action: "invitation.created",
+              actorUserId: inviter.id,
+              targetType: "invitation",
+              targetId: invitation.id,
+              metadata: { email: invitation.email, role: invitation.role },
+            });
+          },
+          async afterCancelInvitation({ invitation, cancelledBy, organization }) {
+            await audit(organization.id, {
+              action: "invitation.canceled",
+              actorUserId: cancelledBy.id,
+              targetType: "invitation",
+              targetId: invitation.id,
+              metadata: { email: invitation.email },
+            });
+          },
+          async afterAcceptInvitation({ invitation, member, user, organization }) {
+            await audit(organization.id, {
+              action: "invitation.accepted",
+              actorUserId: user.id,
+              targetType: "invitation",
+              targetId: invitation.id,
+              metadata: { memberId: member.id, role: member.role },
+            });
+          },
+          async afterRejectInvitation({ invitation, user, organization }) {
+            await audit(organization.id, {
+              action: "invitation.rejected",
+              actorUserId: user.id,
+              targetType: "invitation",
+              targetId: invitation.id,
+              metadata: { email: invitation.email },
+            });
           },
         },
       }),

@@ -27,8 +27,12 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/momentum_test
-      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/momentum_test
+      # The app and tests connect as a restricted role that cannot bypass
+      # row-level security; migrations run as the owner, as in production.
+      DATABASE_URL: postgresql://momentum_app:momentum_app@localhost:5432/momentum_test
+      TEST_DATABASE_URL: postgresql://momentum_app:momentum_app@localhost:5432/momentum_test
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/momentum_test
+      TEST_MIGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/momentum_test
       # Test-only value; real environments set their own secret.
       BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-0000
     steps:
@@ -44,6 +48,10 @@ jobs:
       - run: pnpm test
       - name: Apply migrations
         run: pnpm db:deploy
+      - name: Create the restricted app role
+        run: |
+          psql "$MIGRATION_DATABASE_URL" -c "CREATE ROLE momentum_app LOGIN PASSWORD 'momentum_app' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+          psql "$MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -v app_role=momentum_app -f prisma/sql/app-role.sql
       - name: Check migrations match the schema
         run: pnpm db:check
       - run: pnpm test:db

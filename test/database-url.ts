@@ -13,3 +13,17 @@ export function testDatabaseUrl(): string {
   }
   return url;
 }
+
+/**
+ * Owner connection for the test database: applies migrations and empties
+ * tables between tests. Falls back to TEST_DATABASE_URL when tests run as a
+ * single role.
+ */
+export function testMigrationDatabaseUrl(): string {
+  const appUrl = testDatabaseUrl();
+  const url = process.env.TEST_MIGRATION_DATABASE_URL || appUrl;
+  if (new URL(url).pathname !== new URL(appUrl).pathname) {
+    throw new Error("TEST_MIGRATION_DATABASE_URL must point at the same database as TEST_DATABASE_URL.");
+  }
+  return url;
+}

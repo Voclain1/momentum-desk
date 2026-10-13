@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createMemoryEmailSender } from "@/lib/email";
-import { createTestDb, resetDatabase } from "@/test/db";
+import { createTenantDb } from "@/lib/tenant/core";
+import { createTestDb, disconnectOwnerDb, resetDatabase } from "@/test/db";
 import { createAuth } from "./server";
 
 const db = createTestDb();
@@ -14,10 +15,10 @@ const auth = createAuth({
 });
 
 beforeEach(async () => {
-  await resetDatabase(db);
+  await resetDatabase();
   email.sent.length = 0;
 });
-afterAll(() => db.$disconnect());
+afterAll(() => Promise.all([db.$disconnect(), disconnectOwnerDb()]));
 
 const PASSWORD = "correct horse battery";
 
@@ -265,5 +266,96 @@ describe("workspace settings", () => {
       }),
     ).rejects.toMatchObject({ body: { message: expect.stringMatching(/not a member/i) } });
     expect((await db.organization.findUniqueOrThrow({ where: { id: org.id } })).name).toBe("Acme Solar");
+  });
+});
+
+describe("audit trail", () => {
+  async function auditFor(organizationId: string) {
+    return createTenantDb(db, organizationId).auditLog.findMany({ orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  }
+
+  it("records workspace creation with its full starting settings", async () => {
+    const headers = await signUp();
+    const user = await db.user.findUniqueOrThrow({ where: { email: "ada@example.com" } });
+    const org = await auth.api.createOrganization({
+      body: { name: "Acme Solar", slug: "acme-solar", ...settings },
+      headers,
+    });
+
+    const [joined, created] = await auditFor(org!.id);
+    expect(joined).toMatchObject({
+      action: "member.added",
+      actorUserId: user.id,
+      metadata: { userId: user.id, role: "owner" },
+    });
+    expect(created).toMatchObject({
+      action: "organization.created",
+      actorUserId: user.id,
+      targetType: "organization",
+      targetId: org!.id,
+      metadata: { name: "Acme Solar", slug: "acme-solar", ...settings, defaultInvoiceCurrency: null },
+    });
+  });
+
+  it("records settings changes, role changes and invitations with who made them", async () => {
+    const ownerHeaders = await signUp("owner@example.com");
+    const owner = await db.user.findUniqueOrThrow({ where: { email: "owner@example.com" } });
+    const org = await auth.api.createOrganization({
+      body: { name: "Acme Solar", slug: "acme-solar", ...settings },
+      headers: ownerHeaders,
+    });
+    await signUp("teammate@example.com");
+    const teammate = await db.user.findUniqueOrThrow({ where: { email: "teammate@example.com" } });
+    const member = await auth.api.addMember({
+      body: { organizationId: org!.id, userId: teammate.id, role: "member" },
+    });
+
+    await auth.api.updateOrganization({
+      body: { organizationId: org!.id, data: { timezone: "Europe/London" } },
+      headers: ownerHeaders,
+    });
+    await auth.api.updateMemberRole({
+      body: { organizationId: org!.id, memberId: member!.id, role: "finance" },
+      headers: ownerHeaders,
+    });
+    await auth.api.createInvitation({
+      body: { organizationId: org!.id, email: "new@example.com", role: "sales" },
+      headers: ownerHeaders,
+    });
+
+    const entries = await auditFor(org!.id);
+    expect(entries.map(({ action, actorUserId, metadata }) => ({ action, actorUserId, metadata }))).toEqual([
+      { action: "member.added", actorUserId: owner.id, metadata: { userId: owner.id, role: "owner" } },
+      expect.objectContaining({ action: "organization.created", actorUserId: owner.id }),
+      // Added from server code with no signed-in user.
+      { action: "member.added", actorUserId: null, metadata: { userId: teammate.id, role: "member" } },
+      expect.objectContaining({
+        action: "organization.updated",
+        actorUserId: owner.id,
+        metadata: expect.objectContaining({ timezone: "Europe/London", baseCurrency: "USD" }),
+      }),
+      {
+        action: "member.role_updated",
+        actorUserId: owner.id,
+        metadata: { userId: teammate.id, from: "member", to: "finance" },
+      },
+      { action: "invitation.created", actorUserId: owner.id, metadata: { email: "new@example.com", role: "sales" } },
+    ]);
+  });
+
+  it("is not visible from another workspace", async () => {
+    const headersA = await signUp("a@example.com");
+    const orgA = await auth.api.createOrganization({
+      body: { name: "Alpha", slug: "alpha", ...settings },
+      headers: headersA,
+    });
+    const headersB = await signUp("b@example.com");
+    const orgB = await auth.api.createOrganization({
+      body: { name: "Bravo", slug: "bravo", ...settings },
+      headers: headersB,
+    });
+    expect((await auditFor(orgA!.id)).every((entry) => entry.organizationId === orgA!.id)).toBe(true);
+    expect((await auditFor(orgB!.id)).every((entry) => entry.organizationId === orgB!.id)).toBe(true);
+    expect(await db.auditLog.count()).toBe(0);
   });
 });

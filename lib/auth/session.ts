@@ -15,6 +15,11 @@ import type { Role } from "./permissions";
 /** The current session, read and validated against the database once per request. */
 export const getSession = cache(async () => auth.api.getSession({ headers: await headers() }));
 
+/** Whether the user belongs to at least one workspace. */
+export async function hasWorkspace(userId: string): Promise<boolean> {
+  return (await db.member.findFirst({ where: { userId }, select: { id: true } })) !== null;
+}
+
 /** The signed-in user, or a redirect to sign-in. */
 export async function requireUser() {
   const session = await getSession();

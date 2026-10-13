@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { createTestDb, resetDatabase } from "@/test/db";
+import { createTestDb, disconnectOwnerDb, resetDatabase } from "@/test/db";
 
 const db = createTestDb();
 
-beforeEach(() => resetDatabase(db));
-afterAll(() => db.$disconnect());
+beforeEach(() => resetDatabase());
+afterAll(() => Promise.all([db.$disconnect(), disconnectOwnerDb()]));
 
 const settings = {
   baseCurrency: "USD",

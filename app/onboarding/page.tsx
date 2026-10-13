@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth/session";
-import { db } from "@/lib/db";
+import { hasWorkspace, requireUser } from "@/lib/auth/session";
 import { COUNTRY_CODES } from "@/lib/geo/countries";
 import { CURRENCY_EXPONENTS } from "@/lib/money";
 import { OnboardingForm, type Option } from "./onboarding-form";
@@ -21,7 +20,7 @@ function options(codes: readonly string[], type: "region" | "currency" | "langua
 
 export default async function OnboardingPage() {
   const { user } = await requireUser();
-  if (await db.member.findFirst({ where: { userId: user.id }, select: { id: true } })) {
+  if (await hasWorkspace(user.id)) {
     redirect("/app");
   }
 

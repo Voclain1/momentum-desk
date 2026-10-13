@@ -27,9 +27,11 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 | D19 | Payment providers for first pilot markets | Open (M4) | — | Requires eligibility/currency research per §6. |
 | D20 | AI provider, data handling and usage limits | Open (M6) | — | Behind a provider-neutral `AIService`. |
 | D21 | Route layout | Accepted | `/` marketing, `/app` authenticated workspace, `/q/{token}` and `/i/{token}` public documents | From §13. |
+| D22 | Tenant isolation | Accepted | Two independent layers: `tenantDb()` scopes every query in the app, and Postgres row-level security (forced) filters by a transaction-local organization setting. The app connects as a restricted role without `BYPASSRLS`; migrations use a separate owner URL | See `docs/tenant-isolation.md`. Neon's default owner role bypasses RLS, hence the role split. Cost: each tenant query runs in a short transaction (one extra round trip). |
 
 ## Change history
 
 - 2026-10-11 — Log created. D3–D9 accepted by the owner from the M0 recommendations. D10, D11 and D21 adopted for the M0 foundation.
 - 2026-10-12 — D5 detailed: Prisma 7.10 with the pg driver adapter; first migration adds auth, organization, membership and invitation tables plus organization settings.
 - 2026-10-12 — D3 implemented with Better Auth 1.7.7; D6 Playwright added; D17 marked as blocking production auth emails. Country codes now validated against an explicit ISO 3166-1 table (`lib/geo/countries.ts`), following the D10 approach.
+- 2026-10-13 — D22 accepted: tenant guard, row-level security and restricted app role; audit log added as the first tenant table.

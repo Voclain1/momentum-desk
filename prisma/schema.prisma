@@ -31,6 +31,7 @@ model User {
   accounts    Account[]
   memberships Member[]
   invitations Invitation[] @relation("InvitationInviter")
+  auditLogs   AuditLog[]
 
   @@map("user")
 }
@@ -115,6 +116,7 @@ model Organization {
 
   members     Member[]
   invitations Invitation[]
+  auditLogs   AuditLog[]
 
   @@map("organization")
 }
@@ -166,4 +168,33 @@ model RateLimit {
   lastRequest BigInt
 
   @@map("rateLimit")
+}
+
+// ---------------------------------------------------------------------------
+// Organization-owned data. Every model below has an organizationId, is listed
+// in lib/tenant/models.ts, is read and written only through tenantDb(), and
+// has row-level security in its migration. See docs/tenant-isolation.md.
+// ---------------------------------------------------------------------------
+
+/// Append-only record of significant actions in a workspace (spec §10, §12).
+/// The database rejects UPDATE and DELETE except as a side effect of deleting
+/// the organization or the acting user.
+model AuditLog {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  /// Null for system actions, or after the acting user's account is deleted.
+  actorUserId    String?
+  /// Dotted verb, e.g. "organization.settings_updated". See lib/audit.
+  action         String
+  targetType     String?
+  targetId       String?
+  /// Action details. Never secrets or full documents.
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("auditLog")
 }

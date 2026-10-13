@@ -5,11 +5,12 @@ import {
   RevenueFlowPanel,
   TargetProgress,
 } from "./_components/dashboard";
-import { requireWorkspace } from "@/lib/auth/session";
+import { requireTenant } from "@/lib/tenant/server";
+import { RecentActivity } from "./_components/activity";
 
 export default async function DashboardPage() {
   // Checked here as well as in the layout: layouts do not re-run on every navigation.
-  await requireWorkspace();
+  const tenant = await requireTenant();
   return (
     <>
       <header className="topbar">
@@ -42,6 +43,8 @@ export default async function DashboardPage() {
         <AttentionPanel />
         <RevenueFlowPanel />
       </section>
+
+      <RecentActivity tenant={tenant} />
 
       <footer className="system-note">
         <span aria-hidden>✓</span>

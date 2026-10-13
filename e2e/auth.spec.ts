@@ -13,9 +13,9 @@ function uniqueEmail(label: string) {
   return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 }
 
-async function signUp(page: Page, email: string) {
+async function signUp(page: Page, email: string, name = "Ada Obi") {
   await page.goto("/sign-up");
-  await page.getByLabel("Your name").fill("Ada Obi");
+  await page.getByLabel("Your name").fill(name);
   await page.getByLabel("Work email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
@@ -43,6 +43,10 @@ test("a new user signs up, creates a workspace and reaches the dashboard", async
   await expect(sidebar.getByText("Acme Solar")).toBeVisible();
   await expect(sidebar.getByText("USD base · Owner")).toBeVisible();
   await expect(sidebar.getByText(email)).toBeVisible();
+
+  const activity = page.getByRole("region", { name: "Recent activity" });
+  await expect(activity).toContainText("Ada Obi created the workspace");
+  await expect(activity).toContainText("times in Africa/Lagos");
 
   // With a workspace, onboarding sends the user back to the dashboard.
   await page.goto("/onboarding");
@@ -89,4 +93,24 @@ test("sign-in ignores redirects to other sites", async ({ page }) => {
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/app$/);
+});
+
+test("each workspace sees only its own activity", async ({ browser }) => {
+  const alpha = await browser.newPage();
+  await alpha.setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.201" });
+  await signUp(alpha, uniqueEmail("alpha"), "Alpha Owner");
+  await createWorkspace(alpha, "Alpha Works");
+
+  const bravo = await browser.newPage();
+  await bravo.setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.202" });
+  await signUp(bravo, uniqueEmail("bravo"), "Bravo Owner");
+  await createWorkspace(bravo, "Bravo Works");
+
+  const bravoActivity = bravo.getByRole("region", { name: "Recent activity" });
+  await expect(bravoActivity).toContainText("Bravo Owner created the workspace");
+  await expect(bravoActivity).not.toContainText("Alpha Owner");
+  await expect(bravo.locator("aside")).not.toContainText("Alpha Works");
+
+  await alpha.reload();
+  await expect(alpha.getByRole("region", { name: "Recent activity" })).not.toContainText("Bravo Owner");
 });
