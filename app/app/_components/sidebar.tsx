@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { demoWorkspace } from "../_data/demo-dashboard";
+import type { Workspace } from "@/lib/auth/session";
+import { SignOutButton } from "./sign-out-button";
 
 type NavItem = {
   label: string;
@@ -22,7 +23,16 @@ const navItems: NavItem[] = [
   { label: "Collections", icon: "↗", badge: 8 },
 ];
 
-export function Sidebar() {
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "?").slice(0, 2);
+  return letters.toUpperCase();
+}
+
+const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
+
+export function Sidebar({ workspace }: { workspace: Workspace }) {
+  const { organization, user, role } = workspace;
   return (
     <aside className="sidebar">
       <Link className="brand" href="/">
@@ -30,11 +40,11 @@ export function Sidebar() {
         <span>MomentumDesk</span>
       </Link>
       <div className="workspace-switcher">
-        <span className="workspace-avatar">{demoWorkspace.initials}</span>
+        <span className="workspace-avatar">{initials(organization.name)}</span>
         <span>
-          <strong>{demoWorkspace.name}</strong>
+          <strong>{organization.name}</strong>
           <small>
-            {demoWorkspace.baseCurrency} base · {demoWorkspace.role}
+            {organization.baseCurrency} base · {roleLabel(role)}
           </small>
         </span>
         <span aria-hidden>⌄</span>
@@ -67,12 +77,12 @@ export function Sidebar() {
         <span aria-hidden>⚙</span> <span>Settings</span>
       </span>
       <div className="profile">
-        <span className="profile-avatar">SO</span>
+        <span className="profile-avatar">{initials(user.name)}</span>
         <span>
-          <strong>Sample owner</strong>
-          <small>Product preview</small>
+          <strong>{user.name}</strong>
+          <small>{user.email}</small>
         </span>
-        <span aria-hidden>•••</span>
+        <SignOutButton />
       </div>
     </aside>
   );

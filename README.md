@@ -14,24 +14,55 @@ Done:
 - Environment validation at startup (`lib/env.ts`)
 - Money foundation (`lib/money`): integer minor units as `bigint`, explicit ISO 4217 exponents (zero- and three-decimal currencies), currency-safe arithmetic, locale-aware formatting
 - Routes: `/` marketing page, `/app` workspace dashboard preview (demo data, currency basis shown)
+- Database: PostgreSQL with Prisma 7 (`prisma/schema.prisma`, client in `lib/db`). Tables for users, sessions, accounts, organizations, memberships and invitations in the shape Better Auth expects; organization global settings (§5.1) with database CHECK constraints; all timestamps `timestamptz`
+- Organization settings validation (`lib/organizations/settings.ts`): ISO 4217 currencies, ISO 3166 countries (explicit table in `lib/geo/countries.ts`), BCP 47 locales and languages, IANA timezones
+- Authentication (Better Auth, `lib/auth`): email and password, magic link, password reset, sign-out. Rate limits stored in Postgres. Sign-in pages at `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`
+- Workspaces: `/onboarding` creates an organization with its global settings; the creator becomes owner. Roles owner, admin, sales, finance, member (§10); only owners and admins change settings, only owners delete
+- `/app` requires a session and a workspace membership, both checked on the server (`lib/auth/session.ts`); `proxy.ts` only redirects visitors with no session cookie
 
-Next: Prisma + Postgres (Neon), Better Auth, organizations and memberships, server-side tenant guard with cross-tenant tests, organization settings, onboarding, audit log, Sentry.
+- Tenant isolation ([`docs/tenant-isolation.md`](docs/tenant-isolation.md)): organization data only through `requireTenant()` / `tenantDb()`, plus Postgres row-level security, with the app connecting as a restricted role. Cross-tenant tests at the unit, database and browser level
+- Audit log: append-only, records workspace creation, settings changes, member and invitation changes with the acting user; shown on the dashboard as Recent activity
+
+Next: invitations and team management UI, settings page, business permission matrix, Sentry, deployment.
+
+**Email is not connected yet** (decision D17). In development, sign-in and reset links are printed in the server log. In production, magic links and password resets fail with a clear error until a provider is chosen; email and password sign-in works.
 
 ## Run locally
 
+Needs Node 20.9+, pnpm and PostgreSQL 16 (local, Docker, or a Neon branch).
+
 ```bash
-pnpm install
-cp .env.example .env.local
+pnpm install                  # also generates the Prisma client
+cp .env.example .env.local    # set BETTER_AUTH_SECRET, DATABASE_URL, TEST_DATABASE_URL
+createdb momentum_dev && createdb momentum_test
+pnpm db:deploy                # apply migrations as the owner (MIGRATION_DATABASE_URL)
+# create the restricted app role and grant it access (docs/tenant-isolation.md)
+psql -d momentum_dev -c "CREATE ROLE momentum_app LOGIN PASSWORD 'app' NOSUPERUSER NOBYPASSRLS"
+psql -d momentum_dev -v app_role=momentum_app -f prisma/sql/app-role.sql
+psql -d momentum_test -v app_role=momentum_app -f prisma/sql/app-role.sql
 pnpm dev
 ```
+
+## Database
+
+```bash
+pnpm db:migrate    # after editing prisma/schema.prisma: create and apply a migration
+pnpm db:deploy     # apply pending migrations (CI, production)
+pnpm db:check      # fail if the database and schema differ
+pnpm db:studio     # browse data
+```
+
+Migrations are committed under `prisma/migrations`. CHECK constraints that Prisma's schema language cannot express are written into the migration SQL by hand.
 
 ## Checks
 
 ```bash
 pnpm lint        # ESLint
 pnpm typecheck   # next typegen + tsc
-pnpm test        # Vitest
-pnpm check       # all of the above
+pnpm test        # Vitest unit tests
+pnpm test:db     # Vitest database tests against TEST_DATABASE_URL (name must end in _test)
+pnpm test:e2e    # Playwright: builds the app and runs browser tests against TEST_DATABASE_URL
+pnpm check       # lint, typecheck and unit tests
 pnpm build
 ```
 

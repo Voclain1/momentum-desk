@@ -16,7 +16,8 @@ const compact = (value: Money) => formatMoney(value, locale, { compact: true });
 export function CurrencyBasis() {
   return (
     <p className="currency-basis">
-      Amounts in <strong>{demoWorkspace.baseCurrency}</strong>, the workspace base currency.
+      Sample amounts in <strong>{demoWorkspace.baseCurrency}</strong>. Live totals will use your
+      workspace base currency.
     </p>
   );
 }
