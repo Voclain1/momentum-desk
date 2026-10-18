@@ -13,6 +13,8 @@ Done:
 - Lint, type-check, unit-test commands and GitHub Actions CI
 - Environment validation at startup (`lib/env.ts`)
 - Money foundation (`lib/money`): integer minor units as `bigint`, explicit ISO 4217 exponents (zero- and three-decimal currencies), currency-safe arithmetic, locale-aware formatting
+- Authorization policy core (`lib/tenancy`): explicit role permissions, session/membership dependency contract, and scoped resource checks with unit tests. Not yet wired to auth, database, or routes; see [`docs/authorization.md`](docs/authorization.md).
+- Workspace domain core (`lib/workspaces`): global-settings validation, transactional onboarding contract, authorized version-checked updates, and audit event requirements. Unit tested; production adapters and UI remain pending. See [`docs/workspace-foundation.md`](docs/workspace-foundation.md).
 - Routes: `/` marketing page, `/app` workspace dashboard preview (demo data, currency basis shown)
 
 Next: Prisma + Postgres (Neon), Better Auth, organizations and memberships, server-side tenant guard with cross-tenant tests, organization settings, onboarding, audit log, Sentry.
@@ -34,6 +36,10 @@ pnpm test        # Vitest
 pnpm check       # all of the above
 pnpm build
 ```
+
+If dependencies cannot be installed, Node 22.18+ can run the dependency-free
+domain tests with `node scripts/test-domain.mjs`. This does not replace the full
+checks, type-checking, database integration tests, or build.
 
 ## Build principles
 
