@@ -79,6 +79,18 @@ export function createTenantDb(client: DbClient, organizationId: string): Tenant
   });
 }
 
+export type { Transaction };
+
+/**
+ * Tenant access inside a transaction the caller already opened, for work that
+ * also writes non-tenant rows (e.g. the organization itself) atomically.
+ */
+export async function tenantInTransaction(tx: Transaction, organizationId: string): Promise<TenantDb> {
+  if (!organizationId) throw new TenantViolationError("no organization id");
+  await setOrganization(tx, organizationId);
+  return build(tx, organizationId, (_, query) => query);
+}
+
 /** Several tenant operations in one database transaction. */
 export function runTenantTransaction<T>(
   client: DbClient,
@@ -86,8 +98,5 @@ export function runTenantTransaction<T>(
   work: (tenant: TenantDb) => Promise<T>,
 ): Promise<T> {
   if (!organizationId) throw new TenantViolationError("no organization id");
-  return client.$transaction(async (tx) => {
-    await setOrganization(tx, organizationId);
-    return work(build(tx, organizationId, (_, query) => query));
-  });
+  return client.$transaction(async (tx) => work(await tenantInTransaction(tx, organizationId)));
 }

@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
       "lib/db/**",
       "lib/auth/**",
       "lib/tenant/**",
+      // The workspace record itself (the tenant root); re-checks membership
+      // inside its own transaction.
+      "lib/workspaces/**",
       "test/**",
       "e2e/**",
       "**/*.db.test.ts",
@@ -26,7 +29,7 @@ const eslintConfig = defineConfig([
             {
               group: ["@/lib/db", "@/lib/db/*", "@/lib/generated/*", "**/lib/db", "**/lib/generated/*"],
               message:
-                "Use requireTenant() or tenantDb() from @/lib/tenant for organization data. Raw database access is limited to lib/db, lib/auth and lib/tenant.",
+                "Use requireTenant() or tenantDb() from @/lib/tenant for organization data. Raw database access is limited to lib/db, lib/auth, lib/tenant and lib/workspaces.",
             },
           ],
         },

@@ -60,6 +60,8 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
 
   return betterAuth({
     appName: "MomentumDesk",
+    // Replaced by lib/workspaces/settings-service.ts.
+    disabledPaths: ["/organization/update"],
     baseURL,
     secret,
     database: prismaAdapter(db, { provider: "postgresql" }),
@@ -132,32 +134,19 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
             if (!settings.success) invalidSettings(settings.error.issues);
             return { data: { ...organization, ...settings.data } };
           },
-          async beforeUpdateOrganization({ organization }) {
-            if (organization.slug !== undefined && !isValidSlug(organization.slug)) {
-              invalidSettings([{ path: ["slug"], message: "must be lower-case words separated by hyphens" }]);
-            }
-            // Validate only the settings being changed.
-            const changed = SETTINGS_FIELDS.filter((field) => organization[field] !== undefined);
-            const mask = Object.fromEntries(changed.map((field) => [field, true])) as Partial<
-              Record<(typeof SETTINGS_FIELDS)[number], true>
-            >;
-            const settings = organizationSettingsSchema.pick(mask).safeParse(organization);
-            if (!settings.success) invalidSettings(settings.error.issues);
+          // Workspace name and settings change only through
+          // lib/workspaces/settings-service.ts (permission re-check, version
+          // check and audit in one transaction). The HTTP endpoint is also
+          // disabled; this refuses server-side calls.
+          async beforeUpdateOrganization() {
+            throw new APIError("FORBIDDEN", {
+              message: "Workspace settings are changed through the settings page.",
+            });
           },
           // Audit trail. A failure to record propagates, so it is never silent.
           async afterCreateOrganization({ organization, user }) {
             await audit(organization.id, {
               action: "organization.created",
-              actorUserId: user.id,
-              targetType: "organization",
-              targetId: organization.id,
-              metadata: organizationSnapshot(organization),
-            });
-          },
-          async afterUpdateOrganization({ organization, user }) {
-            if (!organization) return;
-            await audit(organization.id, {
-              action: "organization.updated",
               actorUserId: user.id,
               targetType: "organization",
               targetId: organization.id,
@@ -197,7 +186,8 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
               actorUserId: inviter.id,
               targetType: "invitation",
               targetId: invitation.id,
-              metadata: { email: invitation.email, role: invitation.role },
+              // No email address: the invitation id links to it while it exists.
+              metadata: { role: invitation.role },
             });
           },
           async afterCancelInvitation({ invitation, cancelledBy, organization }) {
@@ -206,7 +196,6 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
               actorUserId: cancelledBy.id,
               targetType: "invitation",
               targetId: invitation.id,
-              metadata: { email: invitation.email },
             });
           },
           async afterAcceptInvitation({ invitation, member, user, organization }) {
@@ -224,7 +213,6 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
               actorUserId: user.id,
               targetType: "invitation",
               targetId: invitation.id,
-              metadata: { email: invitation.email },
             });
           },
         },

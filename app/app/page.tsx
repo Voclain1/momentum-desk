@@ -10,7 +10,7 @@ import { RecentActivity } from "./_components/activity";
 
 export default async function DashboardPage() {
   // Checked here as well as in the layout: layouts do not re-run on every navigation.
-  const tenant = await requireTenant();
+  const tenant = await requireTenant("workspace:read");
   return (
     <>
       <header className="topbar">

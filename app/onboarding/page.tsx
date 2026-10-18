@@ -2,21 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { hasWorkspace, requireUser } from "@/lib/auth/session";
-import { COUNTRY_CODES } from "@/lib/geo/countries";
-import { CURRENCY_EXPONENTS } from "@/lib/money";
-import { OnboardingForm, type Option } from "./onboarding-form";
+import { settingsOptions } from "@/lib/organizations/options";
+import { OnboardingForm } from "./onboarding-form";
 
 export const metadata: Metadata = { title: "Set up your workspace — MomentumDesk" };
-
-/** Languages offered for customer documents. The interface itself is English for now. */
-const DOCUMENT_LANGUAGES = ["en", "fr", "pt", "es", "de", "ar", "sw", "yo", "ha", "ig", "zu", "hi", "zh", "ja"];
-
-function options(codes: readonly string[], type: "region" | "currency" | "language"): Option[] {
-  const names = new Intl.DisplayNames(["en"], { type });
-  return codes
-    .map((value) => ({ value, label: `${names.of(value) ?? value} (${value})` }))
-    .sort((a, b) => a.label.localeCompare(b.label, "en"));
-}
 
 export default async function OnboardingPage() {
   const { user } = await requireUser();
@@ -39,12 +28,7 @@ export default async function OnboardingPage() {
           another currency and invoice customers in several. You can change them later.
         </p>
         <div className="mt-8 rounded-xl border border-[#e7ece9] bg-white p-6 shadow-sm sm:p-8">
-          <OnboardingForm
-            countries={options(COUNTRY_CODES, "region")}
-            currencies={options(Object.keys(CURRENCY_EXPONENTS), "currency")}
-            languages={options(DOCUMENT_LANGUAGES, "language")}
-            timezones={["UTC", ...Intl.supportedValuesOf("timeZone")]}
-          />
+          <OnboardingForm {...settingsOptions()} />
         </div>
       </div>
     </main>

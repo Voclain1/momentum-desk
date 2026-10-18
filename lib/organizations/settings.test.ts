@@ -44,7 +44,7 @@ describe("organizationSettingsSchema", () => {
     expect(errorPaths({ ...valid, countryCode })).toEqual([]);
   });
 
-  it.each(["gb", "GBR", "ZZ", "QQ", "EU", "YU", ""])("rejects country %j", (countryCode) => {
+  it.each(["GBR", "ZZ", "QQ", "EU", "YU", ""])("rejects country %j", (countryCode) => {
     expect(errorPaths({ ...valid, countryCode })).toEqual(["countryCode"]);
   });
 
@@ -52,7 +52,23 @@ describe("organizationSettingsSchema", () => {
     expect(errorPaths({ ...valid, locale })).toEqual([]);
   });
 
-  it.each(["en_GB", "EN-gb", "not a locale", ""])("rejects locale %j", (locale) => {
+  it("normalises country, locale and language input", () => {
+    expect(
+      organizationSettingsSchema.parse({ ...valid, countryCode: " gb ", locale: "EN-gb", defaultLanguage: "PT-br" }),
+    ).toMatchObject({ countryCode: "GB", locale: "en-GB", defaultLanguage: "pt-BR" });
+  });
+
+  it("rejects unknown fields instead of dropping them", () => {
+    const result = organizationSettingsSchema.safeParse({ ...valid, organizationId: "org_b" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects oversized input", () => {
+    expect(errorPaths({ ...valid, locale: "e".repeat(101) })).toEqual(["locale"]);
+    expect(errorPaths({ ...valid, timezone: "Europe/" + "x".repeat(80) })).toEqual(["timezone"]);
+  });
+
+  it.each(["en_GB", "not a locale", "zz-ZZ-not", ""])("rejects locale %j", (locale) => {
     expect(errorPaths({ ...valid, locale })).toEqual(["locale"]);
   });
 
@@ -71,7 +87,7 @@ describe("organizationSettingsSchema", () => {
     expect(errorPaths({ ...valid, defaultLanguage })).toEqual([]);
   });
 
-  it.each(["EN", "qq", "english", ""])("rejects language %j", (defaultLanguage) => {
+  it.each(["qq", "english", ""])("rejects language %j", (defaultLanguage) => {
     expect(errorPaths({ ...valid, defaultLanguage })).toEqual(["defaultLanguage"]);
   });
 

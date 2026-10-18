@@ -196,7 +196,7 @@ describe("workspace creation", () => {
   });
 });
 
-describe("workspace settings", () => {
+describe("workspace administration", () => {
   async function workspaceWithMember(role: "admin" | "sales" | "finance" | "member") {
     const ownerHeaders = await signUp("owner@example.com");
     const org = await auth.api.createOrganization({
@@ -205,48 +205,29 @@ describe("workspace settings", () => {
     });
     const memberHeaders = await signUp("teammate@example.com");
     const teammate = await db.user.findUniqueOrThrow({ where: { email: "teammate@example.com" } });
-    await auth.api.addMember({ body: { organizationId: org!.id, userId: teammate.id, role } });
+    const member = await auth.api.addMember({ body: { organizationId: org!.id, userId: teammate.id, role } });
     await auth.api.setActiveOrganization({ body: { organizationId: org!.id }, headers: memberHeaders });
-    return { org: org!, ownerHeaders, memberHeaders };
+    return { org: org!, member: member!, ownerHeaders, memberHeaders };
   }
 
-  it("lets the owner change settings, validating only what changes", async () => {
+  it("refuses Better Auth's organization update: settings change only through the settings service", async () => {
     const { org, ownerHeaders } = await workspaceWithMember("member");
-    await auth.api.updateOrganization({
-      body: { organizationId: org.id, data: { timezone: "Europe/London" } },
-      headers: ownerHeaders,
-    });
-    expect(await db.organization.findUniqueOrThrow({ where: { id: org.id } })).toMatchObject({
-      timezone: "Europe/London",
-      baseCurrency: "USD",
-    });
-
     await expect(
       auth.api.updateOrganization({
-        body: { organizationId: org.id, data: { baseCurrency: "DOLLARS" } },
+        body: { organizationId: org.id, data: { timezone: "Europe/London" } },
         headers: ownerHeaders,
       }),
-    ).rejects.toMatchObject({ statusCode: 400 });
-  });
-
-  it("lets an admin change settings", async () => {
-    const { org, memberHeaders } = await workspaceWithMember("admin");
-    await auth.api.updateOrganization({
-      body: { organizationId: org.id, data: { locale: "en-GB" } },
-      headers: memberHeaders,
-    });
-    expect((await db.organization.findUniqueOrThrow({ where: { id: org.id } })).locale).toBe("en-GB");
-  });
-
-  it.each(["sales", "finance", "member"] as const)("does not let %s change settings", async (role) => {
-    const { org, memberHeaders } = await workspaceWithMember(role);
-    await expect(
-      auth.api.updateOrganization({
-        body: { organizationId: org.id, data: { baseCurrency: "EUR" } },
-        headers: memberHeaders,
-      }),
     ).rejects.toMatchObject({ statusCode: 403 });
-    expect((await db.organization.findUniqueOrThrow({ where: { id: org.id } })).baseCurrency).toBe("USD");
+
+    const response = await auth.handler(
+      new Request("http://localhost:3000/api/auth/organization/update", {
+        method: "POST",
+        headers: { ...Object.fromEntries(ownerHeaders), "content-type": "application/json", origin: "http://localhost:3000" },
+        body: JSON.stringify({ organizationId: org.id, data: { timezone: "Europe/London" } }),
+      }),
+    );
+    expect(response.status).toBe(404);
+    expect((await db.organization.findUniqueOrThrow({ where: { id: org.id } })).timezone).toBe("Africa/Lagos");
   });
 
   it("does not let an admin delete the workspace", async () => {
@@ -256,16 +237,34 @@ describe("workspace settings", () => {
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 
-  it("does not let a non-member change another workspace", async () => {
-    const { org } = await workspaceWithMember("member");
-    const outsider = await signUp("outsider@example.com");
-    await expect(
-      auth.api.updateOrganization({
-        body: { organizationId: org.id, data: { name: "Hijacked" } },
-        headers: outsider,
-      }),
-    ).rejects.toMatchObject({ body: { message: expect.stringMatching(/not a member/i) } });
-    expect((await db.organization.findUniqueOrThrow({ where: { id: org.id } })).name).toBe("Acme Solar");
+  // Ownership is the one thing an admin cannot touch (spec §10). Better Auth
+  // enforces this today; these tests catch a change in a future version.
+  it("does not let an admin create, change or remove owners", async () => {
+    const { org, memberHeaders: adminHeaders } = await workspaceWithMember("admin");
+    await signUp("third@example.com");
+    const third = await db.user.findUniqueOrThrow({ where: { email: "third@example.com" } });
+    const plain = await auth.api.addMember({ body: { organizationId: org.id, userId: third.id, role: "member" } });
+    await signUp("second-owner@example.com");
+    const secondOwnerUser = await db.user.findUniqueOrThrow({ where: { email: "second-owner@example.com" } });
+    const secondOwner = await auth.api.addMember({
+      body: { organizationId: org.id, userId: secondOwnerUser.id, role: "owner" },
+    });
+    const admin = await db.member.findFirstOrThrow({ where: { organizationId: org.id, role: "admin" } });
+    const roles = async () =>
+      (await db.member.findMany({ where: { organizationId: org.id }, orderBy: { createdAt: "asc" } })).map((m) => m.role);
+    const before = await roles();
+
+    const attempts = [
+      () => auth.api.updateMemberRole({ body: { organizationId: org.id, memberId: plain!.id, role: "owner" }, headers: adminHeaders }),
+      () => auth.api.updateMemberRole({ body: { organizationId: org.id, memberId: admin.id, role: "owner" }, headers: adminHeaders }),
+      () => auth.api.updateMemberRole({ body: { organizationId: org.id, memberId: secondOwner!.id, role: "member" }, headers: adminHeaders }),
+      () => auth.api.removeMember({ body: { organizationId: org.id, memberIdOrEmail: secondOwner!.id }, headers: adminHeaders }),
+      () => auth.api.createInvitation({ body: { organizationId: org.id, email: "new@example.com", role: "owner" }, headers: adminHeaders }),
+    ];
+    for (const attempt of attempts) await expect(attempt()).rejects.toThrow();
+
+    expect(await roles()).toEqual(before);
+    expect(await db.invitation.count()).toBe(0);
   });
 });
 
@@ -297,7 +296,7 @@ describe("audit trail", () => {
     });
   });
 
-  it("records settings changes, role changes and invitations with who made them", async () => {
+  it("records member and invitation changes with who made them", async () => {
     const ownerHeaders = await signUp("owner@example.com");
     const owner = await db.user.findUniqueOrThrow({ where: { email: "owner@example.com" } });
     const org = await auth.api.createOrganization({
@@ -310,10 +309,6 @@ describe("audit trail", () => {
       body: { organizationId: org!.id, userId: teammate.id, role: "member" },
     });
 
-    await auth.api.updateOrganization({
-      body: { organizationId: org!.id, data: { timezone: "Europe/London" } },
-      headers: ownerHeaders,
-    });
     await auth.api.updateMemberRole({
       body: { organizationId: org!.id, memberId: member!.id, role: "finance" },
       headers: ownerHeaders,
@@ -329,17 +324,13 @@ describe("audit trail", () => {
       expect.objectContaining({ action: "organization.created", actorUserId: owner.id }),
       // Added from server code with no signed-in user.
       { action: "member.added", actorUserId: null, metadata: { userId: teammate.id, role: "member" } },
-      expect.objectContaining({
-        action: "organization.updated",
-        actorUserId: owner.id,
-        metadata: expect.objectContaining({ timezone: "Europe/London", baseCurrency: "USD" }),
-      }),
       {
         action: "member.role_updated",
         actorUserId: owner.id,
         metadata: { userId: teammate.id, from: "member", to: "finance" },
       },
-      { action: "invitation.created", actorUserId: owner.id, metadata: { email: "new@example.com", role: "sales" } },
+      // No email address in the audit log.
+      { action: "invitation.created", actorUserId: owner.id, metadata: { role: "sales" } },
     ]);
   });
 

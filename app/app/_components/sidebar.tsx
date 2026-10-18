@@ -73,9 +73,9 @@ export function Sidebar({ workspace }: { workspace: Workspace }) {
         <p>5 actions could move revenue forward today.</p>
         <button type="button">Review suggestions</button>
       </div>
-      <span className="settings">
+      <Link className="settings" href="/app/settings">
         <span aria-hidden>⚙</span> <span>Settings</span>
-      </span>
+      </Link>
       <div className="profile">
         <span className="profile-avatar">{initials(user.name)}</span>
         <span>

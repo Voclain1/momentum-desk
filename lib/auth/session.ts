@@ -39,6 +39,8 @@ export interface Workspace {
     timezone: string;
     defaultLanguage: string;
     defaultInvoiceCurrency: string | null;
+    /** For the settings form: saves must name the version they started from. */
+    settingsVersion: number;
   };
   role: Role;
 }
@@ -81,6 +83,7 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
       timezone: organization.timezone,
       defaultLanguage: organization.defaultLanguage,
       defaultInvoiceCurrency: organization.defaultInvoiceCurrency,
+      settingsVersion: organization.settingsVersion,
     },
     role: membership.role as Role,
   };

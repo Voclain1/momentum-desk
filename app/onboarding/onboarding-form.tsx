@@ -6,10 +6,7 @@ import { authClient, authErrorMessage } from "@/lib/auth/client";
 import { currencyExponent, formatMoney, isCurrencyCode, money } from "@/lib/money";
 import { slugify } from "@/lib/organizations/slug";
 
-export interface Option {
-  value: string;
-  label: string;
-}
+import type { Option } from "@/lib/organizations/options";
 
 const inputClass =
   "w-full rounded-lg border border-[#d5ddd9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#167a62] focus:ring-2 focus:ring-[#167a62]/20";

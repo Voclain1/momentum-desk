@@ -114,3 +114,38 @@ test("each workspace sees only its own activity", async ({ browser }) => {
   await alpha.reload();
   await expect(alpha.getByRole("region", { name: "Recent activity" })).not.toContainText("Bravo Owner");
 });
+
+test("an owner changes workspace settings; a stale tab cannot overwrite them", async ({ page, context }) => {
+  await signUp(page, uniqueEmail("settings"), "Sam Owner");
+  await createWorkspace(page, "Settings Co");
+
+  await page.locator("aside").getByRole("link", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/app\/settings$/);
+  await expect(page.locator(".settings-locked")).toContainText("US Dollar (USD)");
+
+  // A second tab opened before the first one saves.
+  const staleTab = await context.newPage();
+  await staleTab.setExtraHTTPHeaders({ "x-forwarded-for": "198.51.100.150" });
+  await staleTab.goto("/app/settings");
+
+  await page.getByLabel("Business name").fill("Settings Company");
+  await page.getByLabel("Timezone").selectOption("Europe/London");
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByRole("status")).toHaveText("Settings saved.");
+  await expect(page.locator("aside")).toContainText("Settings Company");
+
+  // Saving again from the same tab works: the form picked up the new version.
+  await page.getByLabel("Formatting locale").fill("en-GB");
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByRole("status")).toHaveText("Settings saved.");
+
+  await staleTab.getByLabel("Business name").fill("Overwritten");
+  await staleTab.getByRole("button", { name: "Save settings" }).click();
+  await expect(staleTab.locator("form").getByRole("alert")).toContainText("changed by someone else");
+
+  await page.goto("/app");
+  await expect(page.locator("aside")).toContainText("Settings Company");
+  await expect(page.getByRole("region", { name: "Recent activity" })).toContainText(
+    "Sam Owner updated workspace settings",
+  );
+});

@@ -102,6 +102,8 @@ model Organization {
   // Global settings (spec §5.1). None is inferred from another: a company can
   // be in one country, report in another currency and invoice in several.
   /// ISO 4217 reporting currency, e.g. "USD". Must be in lib/money/currencies.ts.
+  /// Fixed once the workspace exists (database trigger): changing it would
+  /// silently change the meaning of every historical report (spec §5.4).
   baseCurrency           String
   /// ISO 3166-1 alpha-2 country code, e.g. "NG".
   countryCode            String
@@ -113,6 +115,9 @@ model Organization {
   defaultLanguage        String
   /// Optional ISO 4217 default for new quotes and invoices.
   defaultInvoiceCurrency String?
+  /// Incremented on every settings change. Saves must name the version they
+  /// were based on, so concurrent edits cannot silently overwrite each other.
+  settingsVersion        Int     @default(1)
 
   members     Member[]
   invitations Invitation[]

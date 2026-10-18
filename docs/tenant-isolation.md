@@ -13,7 +13,7 @@ Code reaches organization-owned data only through `lib/tenant`:
 ```ts
 import { requireTenant } from "@/lib/tenant/server";
 
-const tenant = await requireTenant(); // session + membership checked on the server
+const tenant = await requireTenant("workspace:read"); // session, membership and permission checked on the server
 const entries = await tenant.db.auditLog.findMany({ take: 20 });
 ```
 
@@ -29,7 +29,9 @@ const entries = await tenant.db.auditLog.findMany({ take: 20 });
 - Use `tenantTransaction(organizationId, async (tenant) => …)` for several
   writes that must succeed or fail together.
 - ESLint blocks importing `@/lib/db` or the generated Prisma client outside
-  `lib/db`, `lib/auth`, `lib/tenant` and tests.
+  `lib/db`, `lib/auth`, `lib/tenant`, `lib/workspaces` (the workspace record
+  itself, with its own in-transaction membership check) and tests.
+- Permissions per role: `docs/authorization.md`.
 
 ## 2. Database: row-level security
 
@@ -88,6 +90,8 @@ call (tests in `lib/auth/auth.db.test.ts`).
 
 `auditLog` is the first tenant table. It is append-only: a trigger rejects
 `UPDATE` and `DELETE`, except foreign-key actions when an organization or a
-user account is deleted. Organization creation and settings changes, member
-changes and invitations are recorded with the acting user
-(`lib/auth/server.ts`, `lib/audit`).
+user account is deleted. Workspace creation, settings changes (each changed
+field with its old and new value, written in the same transaction as the
+change), member changes and invitations are recorded with the acting user
+(`lib/auth/server.ts`, `lib/workspaces`, `lib/audit`). Entries hold no email
+addresses, passwords or tokens.
