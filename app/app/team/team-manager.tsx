@@ -45,6 +45,7 @@ export function TeamManager({
   currentUserId,
   canManage,
   canAssignOwner,
+  emailDelivered,
   members,
   invitations,
 }: {
@@ -52,6 +53,8 @@ export function TeamManager({
   currentUserId: string;
   canManage: boolean;
   canAssignOwner: boolean;
+  /** Whether invitation emails are actually sent (Resend configured). */
+  emailDelivered: boolean;
   members: Member[];
   invitations: Invitation[];
 }) {
@@ -86,7 +89,9 @@ export function TeamManager({
     const email = String(data.get("email")).trim();
     const ok = await run(
       () => authClient.organization.inviteMember({ organizationId, email, role: String(data.get("role")) as Role }),
-      `Invitation created for ${email}. Copy its link below to share it.`,
+      emailDelivered
+        ? `Invitation emailed to ${email}. You can also copy its link below.`
+        : `Invitation created for ${email}. Copy its link below to share it.`,
     );
     if (ok) form.reset();
   }
@@ -233,7 +238,11 @@ export function TeamManager({
           <div className="panel-heading">
             <div>
               <h3>Pending invitations</h3>
-              <p>Share the link directly; email delivery is not set up yet.</p>
+              <p>
+                {emailDelivered
+                  ? "Each invitee was emailed a link. You can also copy it to share directly."
+                  : "Email delivery is not set up, so share each link directly."}
+              </p>
             </div>
           </div>
           {invitations.length === 0 ? (

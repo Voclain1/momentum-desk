@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { invitationPath } from "@/lib/auth/paths";
 import { listPendingInvitations, listTeam } from "@/lib/auth/team";
+import { emailIsDelivered } from "@/lib/email";
+import { parseEnv } from "@/lib/env";
 import { requireTenant } from "@/lib/tenant/server";
 import { TeamManager } from "./team-manager";
 
@@ -28,6 +30,7 @@ export default async function TeamPage() {
         organizationId={organization.id}
         currentUserId={user.id}
         canManage={canManage}
+        emailDelivered={emailIsDelivered(parseEnv(process.env))}
         // Only owners may hand out the owner role (Better Auth enforces it too).
         canAssignOwner={tenant.can("ownership:manage")}
         members={members.map((member) => ({ ...member, joinedAt: date.format(member.joinedAt) }))}

@@ -58,8 +58,8 @@ Invitations (`/app/team`, `/invite/{id}`): an invitation can be accepted
 only by an account signed in with the invited address, after that address is
 confirmed, while the invitation is pending and unexpired (7 days). Better
 Auth enforces each of these on the server; `lib/auth/auth.db.test.ts` and
-`e2e/team.spec.ts` cover them. Managers can copy an invitation's link, so
-inviting works without an email provider; sending the email never blocks it.
+`e2e/team.spec.ts` cover them. Invitations are emailed through Resend, and
+managers can also copy the link; a failed email never blocks the invitation.
 
 Ownership is protected: an admin cannot promote anyone (including themselves)
 to owner, demote or remove an owner, or invite someone as owner. Better Auth
