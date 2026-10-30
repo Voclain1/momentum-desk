@@ -13,6 +13,7 @@ import { organizationSettingsSchema } from "@/lib/organizations/settings";
 import { createTenantDb } from "@/lib/tenant/core";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./constants";
 import { ac, roles } from "./permissions";
+import { invitationPath } from "./paths";
 
 export interface AuthConfig {
   db: DbClient;
@@ -53,6 +54,8 @@ function organizationSnapshot(organization: Record<string, unknown>) {
   }
   return snapshot;
 }
+
+export const INVITATION_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60;
 
 export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig) {
   const audit = (organizationId: string, entry: AuditEntry) =>
@@ -111,6 +114,23 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
         // An unverified account must not accept an invitation sent to that
         // address: anyone can sign up with someone else's email.
         requireEmailVerificationOnInvitation: true,
+        invitationExpiresIn: INVITATION_EXPIRES_IN_SECONDS,
+        // Inviting the same address again replaces the old link.
+        cancelPendingInvitationsOnReInvite: true,
+        async sendInvitationEmail({ id, email: to, role, organization, inviter }, request) {
+          const origin = baseURL ?? (request ? new URL(request.url).origin : "");
+          // The invitation already exists; managers can also copy its link from
+          // the team page, so a missing email provider (D17) must not fail it.
+          try {
+            await email.send({
+              to,
+              subject: `${inviter.user.name} invited you to ${organization.name} on MomentumDesk`,
+              text: `${inviter.user.name} invited you to join ${organization.name} as ${role}.\n\nAccept the invitation (expires in 7 days):\n\n${origin}${invitationPath(id)}\n\nIf you were not expecting this, you can ignore this email.`,
+            });
+          } catch (error) {
+            console.error("Could not send invitation email", error);
+          }
+        },
         schema: {
           organization: {
             additionalFields: {

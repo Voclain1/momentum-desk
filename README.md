@@ -25,7 +25,9 @@ Done:
 - Permissions ([`docs/authorization.md`](docs/authorization.md)): per-role business permission matrix; every server entry point asks `requireTenant(permission)`. Admins cannot create, change or remove owners
 - Settings page (`/app/settings`): owners and admins edit name, country, locale, timezone, document language and default invoice currency. Saves re-check permission in the transaction, reject stale versions (two tabs cannot overwrite each other) and write the audit entry atomically. The base currency is fixed after creation, also enforced by a database trigger
 
-Next: invitations and team management UI, Sentry, deployment.
+- Team (`/app/team`): everyone sees members and roles; owners and admins invite (copyable link, plus email once D17 is decided), change roles, remove members and cancel invitations. Invitees accept at `/invite/{id}` after signing in or up with the invited address and confirming it. Invitations expire after 7 days; inviting again replaces the old link
+
+Next: Sentry, deployment, email provider (D17).
 
 **Email is not connected yet** (decision D17). In development, sign-in and reset links are printed in the server log. In production, magic links and password resets fail with a clear error until a provider is chosen; email and password sign-in works.
 
