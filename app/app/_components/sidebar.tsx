@@ -73,7 +73,10 @@ export function Sidebar({ workspace }: { workspace: Workspace }) {
         <p>5 actions could move revenue forward today.</p>
         <button type="button">Review suggestions</button>
       </div>
-      <Link className="settings" href="/app/settings">
+      <Link className="settings" href="/app/team">
+        <span aria-hidden>☷</span> <span>Team</span>
+      </Link>
+      <Link className="settings settings-secondary" href="/app/settings">
         <span aria-hidden>⚙</span> <span>Settings</span>
       </Link>
       <div className="profile">

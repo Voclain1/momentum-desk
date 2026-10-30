@@ -350,3 +350,117 @@ describe("audit trail", () => {
     expect(await db.auditLog.count()).toBe(0);
   });
 });
+
+describe("invitations", () => {
+  async function workspaceWithOwner() {
+    const ownerHeaders = await signUp("owner@example.com");
+    const org = await auth.api.createOrganization({
+      body: { name: "Acme Solar", slug: "acme-solar", ...settings },
+      headers: ownerHeaders,
+    });
+    return { org: org!, ownerHeaders };
+  }
+
+  async function verify(address: string) {
+    await db.user.update({ where: { email: address }, data: { emailVerified: true } });
+  }
+
+  it("emails a link to the invitation page", async () => {
+    const { org, ownerHeaders } = await workspaceWithOwner();
+    const invitation = await auth.api.createInvitation({
+      body: { organizationId: org.id, email: "new@example.com", role: "sales" },
+      headers: ownerHeaders,
+    });
+    const message = email.lastTo("new@example.com");
+    expect(message?.subject).toBe("Ada Obi invited you to Acme Solar on MomentumDesk");
+    expect(linkFrom(message!.text).toString()).toBe(`http://localhost:3000/invite/${invitation!.id}`);
+  });
+
+  it("still creates the invitation when email cannot be sent", async () => {
+    const noEmail = createAuth({
+      db,
+      email: { send: async () => { throw new Error("no email provider"); } },
+      secret: "test-secret-that-is-at-least-32-characters",
+      baseURL: "http://localhost:3000",
+      rateLimit: false,
+    });
+    const { org, ownerHeaders } = await workspaceWithOwner();
+    const invitation = await noEmail.api.createInvitation({
+      body: { organizationId: org.id, email: "new@example.com", role: "member" },
+      headers: ownerHeaders,
+    });
+    expect(await db.invitation.findUniqueOrThrow({ where: { id: invitation!.id } })).toMatchObject({
+      status: "pending",
+      email: "new@example.com",
+    });
+  });
+
+  it("is accepted only by the invited address, once it is confirmed", async () => {
+    const { org, ownerHeaders } = await workspaceWithOwner();
+    const invitation = await auth.api.createInvitation({
+      body: { organizationId: org.id, email: "new@example.com", role: "finance" },
+      headers: ownerHeaders,
+    });
+    const body = { invitationId: invitation!.id };
+
+    const stranger = await signUp("stranger@example.com");
+    await verify("stranger@example.com");
+    await expect(auth.api.acceptInvitation({ body, headers: stranger })).rejects.toMatchObject({
+      body: { code: "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION" },
+    });
+
+    const invitee = await signUp("new@example.com");
+    await expect(auth.api.acceptInvitation({ body, headers: invitee })).rejects.toMatchObject({
+      body: { code: "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION" },
+    });
+    expect(await db.member.count({ where: { organizationId: org.id } })).toBe(1);
+
+    await verify("new@example.com");
+    await auth.api.acceptInvitation({ body, headers: invitee });
+
+    const user = await db.user.findUniqueOrThrow({ where: { email: "new@example.com" } });
+    expect(await db.member.findFirstOrThrow({ where: { organizationId: org.id, userId: user.id } })).toMatchObject({
+      role: "finance",
+    });
+    expect((await auth.api.getSession({ headers: invitee }))?.session.activeOrganizationId).toBe(org.id);
+    await expect(auth.api.acceptInvitation({ body, headers: invitee })).rejects.toThrow();
+
+    const entries = await createTenantDb(db, org.id).auditLog.findMany({ where: { action: "invitation.accepted" } });
+    expect(entries).toEqual([expect.objectContaining({ actorUserId: user.id, metadata: expect.objectContaining({ role: "finance" }) })]);
+  });
+
+  it("cannot be accepted after it expires", async () => {
+    const { org, ownerHeaders } = await workspaceWithOwner();
+    const invitation = await auth.api.createInvitation({
+      body: { organizationId: org.id, email: "new@example.com", role: "member" },
+      headers: ownerHeaders,
+    });
+    await db.invitation.update({ where: { id: invitation!.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    const invitee = await signUp("new@example.com");
+    await verify("new@example.com");
+    await expect(
+      auth.api.acceptInvitation({ body: { invitationId: invitation!.id }, headers: invitee }),
+    ).rejects.toMatchObject({ body: { code: "INVITATION_NOT_FOUND" } });
+  });
+
+  it("expires after 7 days, and inviting again replaces the old link", async () => {
+    const { org, ownerHeaders } = await workspaceWithOwner();
+    const first = await auth.api.createInvitation({
+      body: { organizationId: org.id, email: "new@example.com", role: "member" },
+      headers: ownerHeaders,
+    });
+    const days = (first!.expiresAt!.getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(6.9);
+    expect(days).toBeLessThanOrEqual(7);
+
+    const second = await auth.api.createInvitation({
+      body: { organizationId: org.id, email: "new@example.com", role: "sales" },
+      headers: ownerHeaders,
+    });
+    const pending = await db.invitation.findMany({ where: { organizationId: org.id, status: "pending" } });
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({ id: second!.id, role: "sales" });
+    expect(second!.id).not.toBe(first!.id);
+    expect((await db.invitation.findUniqueOrThrow({ where: { id: first!.id } })).status).toBe("canceled");
+  });
+});
