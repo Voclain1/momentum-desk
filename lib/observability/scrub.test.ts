@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scrubEvent, scrubText } from "./scrub";
+import { scrubEvent, scrubSpan, scrubText } from "./scrub";
 
 describe("scrubText", () => {
   it.each([
@@ -76,5 +76,32 @@ describe("scrubEvent", () => {
 
   it("drops a user with no id entirely", () => {
     expect(scrubEvent({ user: { ip_address: "203.0.113.7" } }).user).toEqual({});
+  });
+});
+
+describe("scrubSpan", () => {
+  it("scrubs the span name and text attributes and drops personal ones", () => {
+    expect(
+      scrubSpan({
+        name: "GET /reset-password?token=abc",
+        attributes: {
+          "url.full": "https://momentumdesk.app/invite/inv_1?token=abc",
+          "http.request.header.cookie": "session=secret",
+          "user.email": "ada@example.com",
+          "client.address": "203.0.113.7",
+          "db.statement": "SELECT 1",
+          "http.response.status_code": 200,
+          "custom.list": ["bob@example.com", 3],
+        },
+      }),
+    ).toEqual({
+      name: "GET /reset-password?token=[redacted]",
+      attributes: {
+        "url.full": "https://momentumdesk.app/invite/[redacted]?token=[redacted]",
+        "db.statement": "SELECT 1",
+        "http.response.status_code": 200,
+        "custom.list": ["[email]", 3],
+      },
+    });
   });
 });

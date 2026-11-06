@@ -1,4 +1,4 @@
-import { scrubEvent } from "./scrub";
+import { scrubEvent, scrubSpan } from "./scrub";
 
 /**
  * Shared Sentry settings for the server, edge and browser (decision D8).
@@ -17,6 +17,7 @@ export function sentryOptions() {
     // A tenth of requests are traced for performance; errors are always sent.
     tracesSampleRate: 0.1,
     beforeSend: scrubEvent,
-    beforeSendTransaction: scrubEvent,
+    // Spans are streamed in Sentry 11 and skip beforeSend; scrub them here.
+    beforeSendSpan: scrubSpan,
   };
 }

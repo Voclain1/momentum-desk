@@ -93,3 +93,26 @@ export function scrubEvent<E extends ScrubbableEvent>(event: E): E {
   }
   return event;
 }
+
+/** Attribute names that identify a person or carry credentials: dropped. */
+const SENSITIVE_ATTRIBUTE = /cookie|authorization|email|client\.address|client_ip|ip_address|user\.name|user\.full_name/i;
+
+interface ScrubbableSpan {
+  name: string;
+  attributes: Record<string, unknown>;
+}
+
+/**
+ * The same rules for performance spans (Sentry's streamed spans do not pass
+ * through beforeSend): the name and every text attribute are scrubbed, and
+ * attributes that identify a person are dropped.
+ */
+export function scrubSpan<S extends ScrubbableSpan>(span: S): S {
+  span.name = scrubText(span.name);
+  for (const [key, value] of Object.entries(span.attributes)) {
+    if (SENSITIVE_ATTRIBUTE.test(key)) delete span.attributes[key];
+    else if (typeof value === "string") span.attributes[key] = scrubText(value);
+    else if (Array.isArray(value)) span.attributes[key] = value.map((item) => (typeof item === "string" ? scrubText(item) : item));
+  }
+  return span;
+}
