@@ -6,15 +6,17 @@ import { sentryOptions } from "./sentry-options";
 /**
  * Runs the real Sentry SDK with our options and a transport that records
  * everything it would send, to prove scrubbing is applied end to end.
- * Tracing is forced to 100% so spans are always produced and checked too.
+ * Tracing is forced to 100% and a release is set (as Vercel and CI do), so
+ * spans and release-health sessions are always produced and checked too.
  */
 const sent: string[] = [];
-const SECRETS = ["ada@example.com", "s3cret", "203.0.113.7", '"vars"'];
+const SECRETS = ["ada@example.com", "s3cret", "203.0.113.7", '"vars"', "user_agent"];
 
 beforeAll(() => {
   vi.stubEnv("NEXT_PUBLIC_SENTRY_DSN", "https://publickey@o1.ingest.sentry.io/1");
   initSentry({
     tracesSampleRate: 1,
+    release: "test-release",
     transport: () => ({
       send: async (envelope: unknown) => {
         sent.push(JSON.stringify(envelope));
@@ -54,6 +56,8 @@ describe("Sentry with MomentumDesk options", () => {
     await Sentry.flush(2000);
 
     const events = sent.filter((envelope) => envelope.includes('{"type":"event"}'));
+    // A release is set, so a release-health session is sent as well.
+    expect(sent.some((envelope) => envelope.includes('{"type":"session"}'))).toBe(true);
     expect(events).toHaveLength(1);
     expect(events[0]).toContain("Reset failed for [email] at /reset-password?token=[redacted]");
     expect(events[0]).toContain('"organization_id":"org_1"');
