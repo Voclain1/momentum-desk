@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
       // The workspace record itself (the tenant root); re-checks membership
       // inside its own transaction.
       "lib/workspaces/**",
+      // Health check: a bare SELECT 1, no organization data.
+      "lib/observability/health.ts",
       "test/**",
       "e2e/**",
       "**/*.db.test.ts",

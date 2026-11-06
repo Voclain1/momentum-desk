@@ -65,6 +65,14 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ ...required, RESEND_API_KEY: "re_123", EMAIL_FROM: "MomentumDesk" })).toThrow(/EMAIL_FROM/);
   });
 
+  it("accepts an https Sentry DSN and rejects anything else", () => {
+    const dsn = "https://abc123@o1.ingest.sentry.io/42";
+    expect(parseEnv({ ...required, NEXT_PUBLIC_SENTRY_DSN: dsn }).NEXT_PUBLIC_SENTRY_DSN).toBe(dsn);
+    expect(() => parseEnv({ ...required, NEXT_PUBLIC_SENTRY_DSN: "http://abc@o1.ingest.sentry.io/42" })).toThrow(
+      /NEXT_PUBLIC_SENTRY_DSN/,
+    );
+  });
+
   it("reports every invalid variable by name", () => {
     try {
       parseEnv({ NODE_ENV: "staging", APP_URL: "not a url", ...required });

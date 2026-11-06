@@ -28,8 +28,13 @@ Done:
 - Team (`/app/team`): everyone sees members and roles; owners and admins invite (emailed through Resend, plus a copyable link), change roles, remove members and cancel invitations. Invitees accept at `/invite/{id}` after signing in or up with the invited address and confirming it. Invitations expire after 7 days; inviting again replaces the old link
 
 - Email through Resend (`lib/email`): sign-in links, password resets, email confirmation and invitations. Plain HTTP API, 10-second timeout, errors never include the key or recipient
+- Error monitoring through Sentry (`instrumentation.ts`, `lib/observability`): server, edge and browser errors; off unless `NEXT_PUBLIC_SENTRY_DSN` is set. No session replay; every event is scrubbed of emails, IPs, cookies, auth headers, request bodies, one-time tokens and local variables before it leaves the app
+- Health check: `GET /api/health` returns 200 when the app and database are up, 503 otherwise
+- Deploys: Vercel runs `vercel-build`, which applies migrations as the owner and then builds; production refuses to deploy without `MIGRATION_DATABASE_URL`
 
-Next: Sentry, deployment.
+**Going live:** [`docs/go-live.md`](docs/go-live.md) lists every account, key and setup step in order.
+
+Next: M1 (customers, leads and pipeline).
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
 
