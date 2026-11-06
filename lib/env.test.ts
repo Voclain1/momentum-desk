@@ -47,6 +47,24 @@ describe("parseEnv", () => {
     );
   });
 
+  it("accepts Resend settings together", () => {
+    const env = parseEnv({ ...required, RESEND_API_KEY: "re_123", EMAIL_FROM: "MomentumDesk <no-reply@momentumdesk.app>" });
+    expect(env).toMatchObject({ RESEND_API_KEY: "re_123", EMAIL_FROM: "MomentumDesk <no-reply@momentumdesk.app>" });
+    expect(parseEnv({ ...required, RESEND_API_KEY: "re_123", EMAIL_FROM: "no-reply@momentumdesk.app" }).EMAIL_FROM).toBe(
+      "no-reply@momentumdesk.app",
+    );
+  });
+
+  it("requires RESEND_API_KEY and EMAIL_FROM together", () => {
+    expect(() => parseEnv({ ...required, RESEND_API_KEY: "re_123" })).toThrow(/EMAIL_FROM: RESEND_API_KEY and EMAIL_FROM/);
+    expect(() => parseEnv({ ...required, EMAIL_FROM: "no-reply@momentumdesk.app" })).toThrow(/set together/);
+  });
+
+  it("rejects a malformed Resend key or sender", () => {
+    expect(() => parseEnv({ ...required, RESEND_API_KEY: "sk_123", EMAIL_FROM: "a@b.co" })).toThrow(/RESEND_API_KEY/);
+    expect(() => parseEnv({ ...required, RESEND_API_KEY: "re_123", EMAIL_FROM: "MomentumDesk" })).toThrow(/EMAIL_FROM/);
+  });
+
   it("reports every invalid variable by name", () => {
     try {
       parseEnv({ NODE_ENV: "staging", APP_URL: "not a url", ...required });

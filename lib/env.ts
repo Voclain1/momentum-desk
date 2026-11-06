@@ -5,8 +5,7 @@ import { z } from "zod";
  * deployment fails at startup rather than at first use. Secrets stay
  * server-side: never prefix them with NEXT_PUBLIC_.
  *
- * Variables for monitoring and email delivery are added with the features
- * that use them.
+ * Variables for monitoring are added with the feature that uses them.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -22,6 +21,18 @@ const envSchema = z.object({
    * `openssl rand -base64 32`; use a different value per environment.
    */
   BETTER_AUTH_SECRET: z.string().min(32, { error: "must be at least 32 characters" }),
+  /** Resend API key (decision D17). Without it, production cannot send email. */
+  RESEND_API_KEY: z.string().startsWith("re_", { error: 'must be a Resend API key starting with "re_"' }).optional(),
+  /** Sender, e.g. "MomentumDesk <no-reply@momentumdesk.app>", on a domain verified in Resend. */
+  EMAIL_FROM: z
+    .string()
+    .regex(/^(?:[^<>]+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+)$/, {
+      error: 'must be an address or "Name <address>"',
+    })
+    .optional(),
+}).refine((env) => !env.RESEND_API_KEY === !env.EMAIL_FROM, {
+  error: "RESEND_API_KEY and EMAIL_FROM must be set together",
+  path: ["EMAIL_FROM"],
 });
 
 export type Env = z.infer<typeof envSchema>;

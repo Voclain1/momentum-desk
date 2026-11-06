@@ -20,10 +20,10 @@ export async function hasWorkspace(userId: string): Promise<boolean> {
   return (await db.member.findFirst({ where: { userId }, select: { id: true } })) !== null;
 }
 
-/** The signed-in user, or a redirect to sign-in. */
-export async function requireUser() {
+/** The signed-in user, or a redirect to sign-in that comes back to `returnTo`. */
+export async function requireUser(returnTo?: string) {
   const session = await getSession();
-  if (!session) redirect("/sign-in");
+  if (!session) redirect(returnTo ? `/sign-in?next=${encodeURIComponent(returnTo)}` : "/sign-in");
   return session;
 }
 

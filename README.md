@@ -25,9 +25,13 @@ Done:
 - Permissions ([`docs/authorization.md`](docs/authorization.md)): per-role business permission matrix; every server entry point asks `requireTenant(permission)`. Admins cannot create, change or remove owners
 - Settings page (`/app/settings`): owners and admins edit name, country, locale, timezone, document language and default invoice currency. Saves re-check permission in the transaction, reject stale versions (two tabs cannot overwrite each other) and write the audit entry atomically. The base currency is fixed after creation, also enforced by a database trigger
 
-Next: invitations and team management UI, Sentry, deployment.
+- Team (`/app/team`): everyone sees members and roles; owners and admins invite (emailed through Resend, plus a copyable link), change roles, remove members and cancel invitations. Invitees accept at `/invite/{id}` after signing in or up with the invited address and confirming it. Invitations expire after 7 days; inviting again replaces the old link
 
-**Email is not connected yet** (decision D17). In development, sign-in and reset links are printed in the server log. In production, magic links and password resets fail with a clear error until a provider is chosen; email and password sign-in works.
+- Email through Resend (`lib/email`): sign-in links, password resets, email confirmation and invitations. Plain HTTP API, 10-second timeout, errors never include the key or recipient
+
+Next: Sentry, deployment.
+
+**Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
 
 ## Run locally
 

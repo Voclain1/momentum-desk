@@ -6,7 +6,7 @@ import { authClient, authErrorMessage } from "@/lib/auth/client";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/constants";
 import { Field, FormMessage, SubmitButton } from "../_components/form";
 
-export function SignUpForm() {
+export function SignUpForm({ next }: { next: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -20,13 +20,15 @@ export function SignUpForm() {
       name: String(form.get("name")).trim(),
       email: String(form.get("email")).trim(),
       password: String(form.get("password")),
+      // Where the email confirmation link returns to.
+      callbackURL: next,
     });
     if (error) {
       setError(authErrorMessage(error));
       setPending(false);
       return;
     }
-    router.push("/onboarding");
+    router.push(next);
     router.refresh();
   }
 
