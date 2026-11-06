@@ -33,6 +33,12 @@ model User {
   invitations      Invitation[] @relation("InvitationInviter")
   auditLogs        AuditLog[]
   customersCreated Customer[]   @relation("CustomerCreatedBy")
+  leadsOwned       Lead[]       @relation("LeadOwner")
+  leadsCreated     Lead[]       @relation("LeadCreatedBy")
+  activities       Activity[]   @relation("ActivityAuthor")
+  tasksAssigned    Task[]       @relation("TaskAssignee")
+  tasksCreated     Task[]       @relation("TaskCreatedBy")
+  tasksCompleted   Task[]       @relation("TaskCompletedBy")
 
   @@map("user")
 }
@@ -125,6 +131,10 @@ model Organization {
   auditLogs   AuditLog[]
   customers   Customer[]
   contacts    Contact[]
+  stages      PipelineStage[]
+  leads       Lead[]
+  activities  Activity[]
+  tasks       Task[]
 
   @@map("organization")
 }
@@ -251,6 +261,8 @@ model Customer {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy    User?        @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   contacts     Contact[]
+  activities   Activity[]
+  tasks        Task[]
 
   /// Lets child tables reference (id, organizationId), so a child row can
   /// never point at another organization's customer.
@@ -281,4 +293,146 @@ model Contact {
 
   @@index([organizationId, customerId])
   @@map("contact")
+}
+
+/// A stage of the workspace's sales pipeline (spec §7.2). One pipeline per
+/// workspace in V1. Logic depends on `kind`, never on the stage name, so
+/// stages can be renamed or added later.
+model PipelineStage {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  /// Stable identifier for the default stages, e.g. "qualified".
+  key            String
+  name           String
+  /// "open", "won" or "lost".
+  kind           String
+  /// Order on the board, lowest first.
+  position       Int
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads        Lead[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, key])
+  @@index([organizationId, position])
+  @@map("pipelineStage")
+}
+
+/// An enquiry or deal moving through the pipeline, from first contact to won
+/// or lost (spec §7.2).
+model Lead {
+  id                  String    @id @default(uuid(7))
+  organizationId      String
+  /// The person enquiring. At least one of contactName and companyName.
+  contactName         String?
+  companyName         String?
+  /// Stored lower-case.
+  email               String?
+  phone               String?
+  /// Where the lead came from, e.g. "referral". See lib/leads/schema.ts.
+  source              String?
+  /// Workspace member responsible for the lead.
+  ownerUserId         String?
+  stageId             String
+  /// Estimated value in minor units of `currency` (spec §5.3). Both or neither.
+  estimatedValueMinor BigInt?
+  currency            String?
+  /// What the customer needs.
+  summary             String?
+  /// Calendar date in the workspace's timezone.
+  nextFollowUpOn      DateTime? @db.Date
+  tags                String[]  @default([])
+  notes               String?
+  /// When the lead entered its current stage.
+  stageChangedAt      DateTime  @default(now()) @db.Timestamptz(3)
+  /// Set when the lead reaches a won or lost stage; cleared if reopened.
+  closedAt            DateTime? @db.Timestamptz(3)
+  lostReason          String?
+  archivedAt          DateTime? @db.Timestamptz(3)
+  createdById         String?
+  version             Int       @default(1)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Composite key: a lead's stage must belong to its own workspace.
+  stage        PipelineStage @relation(fields: [stageId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  owner        User?         @relation("LeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy    User?         @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  activities   Activity[]
+  tasks        Task[]
+
+  /// Lets activities and tasks reference (id, organizationId).
+  @@unique([id, organizationId])
+  @@index([organizationId, archivedAt, stageId])
+  @@index([organizationId, ownerUserId])
+  @@index([organizationId, nextFollowUpOn])
+  @@index([organizationId, updatedAt])
+  @@map("lead")
+}
+
+/// Something said or done with a lead or customer: a note, or a logged call,
+/// email, meeting or message (spec §7.2). The record's own history (created,
+/// stage moves, edits) comes from the audit log and is merged into the
+/// timeline, not stored twice.
+model Activity {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  /// "note", "call", "email", "meeting" or "message".
+  kind           String
+  body           String
+  /// When it happened (a call yesterday can be logged today).
+  occurredAt     DateTime  @db.Timestamptz(3)
+  /// Exactly one of leadId and customerId.
+  leadId         String?
+  customerId     String?
+  authorUserId   String?
+  editedAt       DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead?        @relation(fields: [leadId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  author       User?        @relation("ActivityAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, leadId, occurredAt])
+  @@index([organizationId, customerId, occurredAt])
+  @@map("activity")
+}
+
+/// A to-do, optionally about one lead or customer (spec §7.2 "tasks and
+/// reminders"). Reminders are shown in the app; emailed reminders wait for
+/// the background job service (D18).
+model Task {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  title          String
+  notes          String?
+  /// Calendar date in the workspace's timezone.
+  dueOn          DateTime? @db.Date
+  assigneeUserId String?
+  /// At most one of leadId and customerId; neither for a standalone task.
+  leadId         String?
+  customerId     String?
+  completedAt    DateTime? @db.Timestamptz(3)
+  completedById  String?
+  createdById    String?
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lead         Lead?        @relation(fields: [leadId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  assignee     User?        @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  completedBy  User?        @relation("TaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, completedAt, dueOn])
+  @@index([organizationId, assigneeUserId, completedAt])
+  @@index([organizationId, leadId])
+  @@index([organizationId, customerId])
+  @@map("task")
 }

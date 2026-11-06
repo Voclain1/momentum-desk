@@ -7,6 +7,7 @@ import {
 } from "./_components/dashboard";
 import { requireTenant } from "@/lib/tenant/server";
 import { RecentActivity } from "./_components/activity";
+import { MyTasks } from "./_components/my-tasks";
 
 export default async function DashboardPage() {
   // Checked here as well as in the layout: layouts do not re-run on every navigation.
@@ -44,6 +45,7 @@ export default async function DashboardPage() {
         <RevenueFlowPanel />
       </section>
 
+      <MyTasks tenant={tenant} />
       <RecentActivity tenant={tenant} />
 
       <footer className="system-note">
