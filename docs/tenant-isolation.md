@@ -83,8 +83,9 @@ column is not registered, or if a registered table lacks forced row-level
 security.
 
 Tenant tables so far: `auditLog`, `customer`, `contact` (references
-`customer` through the composite key), `pipelineStage` and `lead`
-(references `pipelineStage` through the composite key). Domain services such as
+`customer` through the composite key), `pipelineStage`, `lead`
+(references `pipelineStage` through the composite key), `activity` and
+`task` (reference `lead` or `customer` through composite keys). Domain services such as
 `lib/customers/service.ts` receive `TenantData` (`lib/tenant`) instead of a
 database client, so they can only run scoped queries.
 

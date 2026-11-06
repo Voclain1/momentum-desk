@@ -3,7 +3,7 @@ import { recordAudit } from "@/lib/audit";
 import { InputValidationError, RecordConflictError, RecordNotFoundError } from "@/lib/errors";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { TenantData, TenantDb } from "@/lib/tenant/core";
-import { addDays, dateValue } from "./dates";
+import { addDays, dateValue } from "@/lib/dates";
 import { fieldErrors, type LeadInput, leadInputSchema, type LeadSource } from "./schema";
 
 /**

@@ -7,6 +7,7 @@ import { settingsOptions } from "@/lib/organizations/options";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 import { NoAccess } from "../../_components/no-access";
+import { RecordWork } from "../../work/record-work";
 import { setArchivedAction, updateCustomerAction } from "../actions";
 import { CustomerForm } from "../customer-form";
 import { ArchiveButton, Contacts } from "./customer-panels";
@@ -93,6 +94,7 @@ export default async function CustomerPage({ params }: PageProps<"/app/customers
           }))}
         />
       </section>
+      <RecordWork tenant={tenant} parent={{ type: "customer", id: customer.id }} canWrite={canEdit} />
     </>
   );
 }

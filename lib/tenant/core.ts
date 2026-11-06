@@ -1,5 +1,5 @@
 import type { DbClient } from "@/lib/db/client";
-import type { AuditLog, Contact, Customer, Lead, PipelineStage, Prisma } from "@/lib/generated/prisma/client";
+import type { Activity, AuditLog, Contact, Customer, Lead, PipelineStage, Prisma, Task } from "@/lib/generated/prisma/client";
 import { TENANT_MODELS, type TenantModel } from "./models";
 import { SCOPED_OPERATIONS, scopeArgs, TenantViolationError } from "./scope";
 
@@ -10,6 +10,8 @@ interface TenantModelTypes {
   contact: { create: Prisma.ContactUncheckedCreateInput; row: Contact };
   pipelineStage: { create: Prisma.PipelineStageUncheckedCreateInput; row: PipelineStage };
   lead: { create: Prisma.LeadUncheckedCreateInput; row: Lead };
+  activity: { create: Prisma.ActivityUncheckedCreateInput; row: Activity };
+  task: { create: Prisma.TaskUncheckedCreateInput; row: Task };
 }
 
 /** Create input without the organization, which tenantDb always sets. */

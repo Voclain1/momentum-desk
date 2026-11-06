@@ -9,6 +9,7 @@ import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 import { ArchiveButton } from "../../customers/[id]/customer-panels";
 import { NoAccess } from "../../_components/no-access";
+import { RecordWork } from "../../work/record-work";
 import { setLeadArchivedAction, updateLeadAction } from "../actions";
 import { LeadForm } from "../lead-form";
 import { leadFormData } from "../page-data";
@@ -86,6 +87,7 @@ export default async function LeadPage({ params }: PageProps<"/app/leads/[id]">)
           />
         </div>
       </section>
+      <RecordWork tenant={tenant} parent={{ type: "lead", id: lead.id }} canWrite={canEdit} />
     </>
   );
 }

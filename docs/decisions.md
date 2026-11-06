@@ -32,6 +32,7 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 | D24 | Changing workspace settings | Accepted | Only through `lib/workspaces/settings-service.ts`: permission re-checked inside a serialisable transaction, compare-and-set on `settingsVersion`, audit entry in the same transaction. Better Auth's organization update endpoint is disabled | Design from the Codex workspace-foundations work, implemented on Prisma and Postgres. |
 | D25 | Removing customers | Accepted (archive) / Open (erasure) | Customers are archived, never deleted, in V1: hidden from lists, history kept. Contacts can be removed | Permanent deletion and data-subject erasure need a retention policy (spec §9: "define deletion, retention, export and audit policies") before quotes and invoices reference customers. |
 | D26 | Leads and pipeline model | Accepted | One `lead` entity moves through the pipeline from enquiry to won or lost; an opportunity is a lead in a later stage. One pipeline per workspace in V1; stages are data with a `kind` (open, won, lost) and default stages are created on first use. Estimated values are minor units with a currency; board totals are per currency | Stages can be renamed or added later without code changes (spec §7.2). Linking leads to customers comes with conversion (M1, later slice). |
+| D27 | Timeline, notes and tasks | Accepted | Activities (note, call, email, meeting, message) belong to exactly one lead or customer; the timeline merges them with the record's audit history instead of storing events twice. Tasks belong to at most one record. Both inherit the record's permission. Task reminders are shown in the app (tasks page, dashboard) | Emailed or scheduled reminders need the background job service (D18). Wall-clock times are entered and shown in the workspace's timezone. |
 
 ## Change history
 
@@ -45,3 +46,4 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 - 2026-11-06 — D8 implemented (Sentry with event scrubbing); D9 deployment path prepared (`vercel-build`, preview origins, `docs/go-live.md`). Health check added. Remaining go-live work is account setup by the owner.
 - 2026-11-06 — M1 started: customers and contacts. D25 recorded.
 - 2026-11-06 — Leads and pipeline added (M1). D26 recorded.
+- 2026-11-06 — Activity, notes and tasks added (M1). D27 recorded.

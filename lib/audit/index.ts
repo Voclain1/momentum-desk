@@ -29,7 +29,14 @@ export type AuditAction =
   | "lead.updated"
   | "lead.stage_changed"
   | "lead.archived"
-  | "lead.restored";
+  | "lead.restored"
+  | "activity.updated"
+  | "activity.removed"
+  | "task.created"
+  | "task.updated"
+  | "task.completed"
+  | "task.reopened"
+  | "task.removed";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -37,7 +44,7 @@ export interface AuditEntry {
   action: AuditAction;
   /** The signed-in user who acted. Null for system actions. */
   actorUserId: string | null;
-  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead";
+  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task";
   targetId?: string;
   /** Details of the change. Never passwords, tokens or full documents. */
   metadata?: { [key: string]: JsonValue };

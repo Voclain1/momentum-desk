@@ -1,26 +1,13 @@
 import { z } from "zod";
 import { fromDecimalString, InvalidAmountError } from "@/lib/money";
 import { currencyCode } from "@/lib/organizations/settings";
-import { blankToNull, email, optional, phone, tags, text } from "@/lib/validation/fields";
+import { blankToNull, calendarDate, email, optional, phone, tags, text } from "@/lib/validation/fields";
 
 export { fieldErrors } from "@/lib/validation/fields";
 
 /** Where a lead came from. Stored as the key; labels live in the UI. */
 export const LEAD_SOURCES = ["website", "referral", "phone", "email", "walk_in", "social", "event", "partner", "other"] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
-
-/** A calendar date, "YYYY-MM-DD", that exists (no 31 February). */
-const calendarDate = optional(
-  z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "must be a date" })
-    .refine((value) => {
-      const date = new Date(`${value}T00:00:00Z`);
-      return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
-    }, { error: "must be a real date" })
-    .transform((value) => new Date(`${value}T00:00:00Z`)),
-);
 
 /**
  * Lead input from a form (spec §7.2). The estimated value arrives as a

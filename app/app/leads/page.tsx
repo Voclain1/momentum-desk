@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listTeam } from "@/lib/auth/team";
-import { todayIn } from "@/lib/leads/dates";
+import { todayIn } from "@/lib/dates";
 import { leadName, SOURCE_LABELS } from "@/lib/leads/labels";
 import { LEAD_SOURCES, type LeadSource } from "@/lib/leads/schema";
 import { LEAD_SORTS, type LeadQuery, listLeads, listStages } from "@/lib/leads/service";

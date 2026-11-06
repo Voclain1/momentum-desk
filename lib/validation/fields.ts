@@ -41,6 +41,19 @@ export const tags = z.preprocess(
     .pipe(z.array(z.string()).max(20, { error: "at most 20 tags" })),
 );
 
+/** A calendar date, "YYYY-MM-DD", that exists (no 31 February). */
+export const calendarDate = optional(
+  z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "must be a date" })
+    .refine((value) => {
+      const date = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+    }, { error: "must be a real date" })
+    .transform((value) => new Date(`${value}T00:00:00Z`)),
+);
+
 /** Field name → message, from a failed parse. Messages never repeat the input. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const fields: Record<string, string> = {};

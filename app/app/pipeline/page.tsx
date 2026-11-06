@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { todayIn } from "@/lib/leads/dates";
+import { todayIn } from "@/lib/dates";
 import { leadName } from "@/lib/leads/labels";
 import { BOARD_CARD_LIMIT, getBoard } from "@/lib/leads/service";
 import { formatMoney, money } from "@/lib/money";
