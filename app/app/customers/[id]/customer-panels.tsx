@@ -3,7 +3,15 @@
 import { useActionState, useState, useTransition } from "react";
 import { type FormState, removeContactAction, saveContactAction } from "../actions";
 
-export function ArchiveButton({ action, archived }: { action: () => Promise<FormState>; archived: boolean }) {
+export function ArchiveButton({
+  action,
+  archived,
+  noun = "customer",
+}: {
+  action: () => Promise<FormState | { status: string; message?: string }>;
+  archived: boolean;
+  noun?: string;
+}) {
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   return (
@@ -15,13 +23,13 @@ export function ArchiveButton({ action, archived }: { action: () => Promise<Form
         disabled={pending}
         onClick={() =>
           start(async () => {
-            if (!archived && !window.confirm("Archive this customer? It will be hidden from lists but keeps its history.")) return;
+            if (!archived && !window.confirm(`Archive this ${noun}? It will be hidden from lists but keeps its history.`)) return;
             const result = await action();
-            setError(result.status === "error" ? result.message : "");
+            setError(result.status === "error" ? (result.message ?? "") : "");
           })
         }
       >
-        {archived ? "Restore customer" : "Archive"}
+        {archived ? `Restore ${noun}` : "Archive"}
       </button>
     </>
   );

@@ -37,7 +37,8 @@ Done:
 ## M1 (customers, leads and pipeline): in progress
 
 - Customers and contacts (`/app/customers`, `lib/customers`): people or organizations with contact, address, tax and preference details (preferred currency is a default only), tags and notes; several contacts each, one primary. Search across names, emails, tax IDs, contacts and tags; filter, sort and page. Archive and restore instead of delete. Version-checked edits, audited by field name. Owner, admin, sales and finance can view and edit; member cannot
-- Next: leads and pipeline stages, then activity, notes and tasks, then conversion, duplicates and import/export
+- Leads and pipeline (`/app/leads`, `/app/pipeline`, `lib/leads`): leads with contact details, source, owner, estimated value and currency (exact minor units), need, next follow-up date, tags and notes. One pipeline per workspace with default stages (New, Contacted, Qualified, Quote / proposal, Won, Lost) created on first use; logic follows each stage's kind (open, won, lost), not its name. The board shows counts and per-currency totals (currencies are never added together) and moves leads between stages; the list filters by status, stage, owner, source and follow-up (overdue, today, next 7 days, in the workspace's timezone). Owner, admin and sales can use them; finance and member cannot
+- Next: activity, notes and tasks, then conversion, duplicates and import/export
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
 

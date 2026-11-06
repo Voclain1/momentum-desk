@@ -33,6 +33,8 @@ model User {
   invitations      Invitation[] @relation("InvitationInviter")
   auditLogs        AuditLog[]
   customersCreated Customer[]   @relation("CustomerCreatedBy")
+  leadsOwned       Lead[]       @relation("LeadOwner")
+  leadsCreated     Lead[]       @relation("LeadCreatedBy")
 
   @@map("user")
 }
@@ -125,6 +127,8 @@ model Organization {
   auditLogs   AuditLog[]
   customers   Customer[]
   contacts    Contact[]
+  stages      PipelineStage[]
+  leads       Lead[]
 
   @@map("organization")
 }
@@ -281,4 +285,77 @@ model Contact {
 
   @@index([organizationId, customerId])
   @@map("contact")
+}
+
+/// A stage of the workspace's sales pipeline (spec §7.2). One pipeline per
+/// workspace in V1. Logic depends on `kind`, never on the stage name, so
+/// stages can be renamed or added later.
+model PipelineStage {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  /// Stable identifier for the default stages, e.g. "qualified".
+  key            String
+  name           String
+  /// "open", "won" or "lost".
+  kind           String
+  /// Order on the board, lowest first.
+  position       Int
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads        Lead[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, key])
+  @@index([organizationId, position])
+  @@map("pipelineStage")
+}
+
+/// An enquiry or deal moving through the pipeline, from first contact to won
+/// or lost (spec §7.2).
+model Lead {
+  id                  String    @id @default(uuid(7))
+  organizationId      String
+  /// The person enquiring. At least one of contactName and companyName.
+  contactName         String?
+  companyName         String?
+  /// Stored lower-case.
+  email               String?
+  phone               String?
+  /// Where the lead came from, e.g. "referral". See lib/leads/schema.ts.
+  source              String?
+  /// Workspace member responsible for the lead.
+  ownerUserId         String?
+  stageId             String
+  /// Estimated value in minor units of `currency` (spec §5.3). Both or neither.
+  estimatedValueMinor BigInt?
+  currency            String?
+  /// What the customer needs.
+  summary             String?
+  /// Calendar date in the workspace's timezone.
+  nextFollowUpOn      DateTime? @db.Date
+  tags                String[]  @default([])
+  notes               String?
+  /// When the lead entered its current stage.
+  stageChangedAt      DateTime  @default(now()) @db.Timestamptz(3)
+  /// Set when the lead reaches a won or lost stage; cleared if reopened.
+  closedAt            DateTime? @db.Timestamptz(3)
+  lostReason          String?
+  archivedAt          DateTime? @db.Timestamptz(3)
+  createdById         String?
+  version             Int       @default(1)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Composite key: a lead's stage must belong to its own workspace.
+  stage        PipelineStage @relation(fields: [stageId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  owner        User?         @relation("LeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy    User?         @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, archivedAt, stageId])
+  @@index([organizationId, ownerUserId])
+  @@index([organizationId, nextFollowUpOn])
+  @@index([organizationId, updatedAt])
+  @@map("lead")
 }

@@ -18,6 +18,11 @@ const LABELS: Record<AuditAction, string> = {
   "contact.added": "added a contact",
   "contact.updated": "updated a contact",
   "contact.removed": "removed a contact",
+  "lead.created": "added a lead",
+  "lead.updated": "updated a lead",
+  "lead.stage_changed": "moved a lead",
+  "lead.archived": "archived a lead",
+  "lead.restored": "restored a lead",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */
