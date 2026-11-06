@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
-import { createTenantDb, runTenantTransaction, type TenantDb } from "./core";
+import { createTenantData, createTenantDb, runTenantTransaction, type TenantDb } from "./core";
 
-export type { TenantDb } from "./core";
+export type { TenantData, TenantDb } from "./core";
 export { TenantViolationError } from "./scope";
 
 /**
@@ -16,3 +16,6 @@ export function tenantDb(organizationId: string): TenantDb {
 export function tenantTransaction<T>(organizationId: string, work: (tenant: TenantDb) => Promise<T>) {
   return runTenantTransaction(db, organizationId, work);
 }
+
+/** Scoped data access for domain services (lib/customers, …). */
+export const tenantData = createTenantData(db);

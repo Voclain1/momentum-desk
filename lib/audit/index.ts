@@ -17,7 +17,14 @@ export type AuditAction =
   | "invitation.created"
   | "invitation.canceled"
   | "invitation.accepted"
-  | "invitation.rejected";
+  | "invitation.rejected"
+  | "customer.created"
+  | "customer.updated"
+  | "customer.archived"
+  | "customer.restored"
+  | "contact.added"
+  | "contact.updated"
+  | "contact.removed";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -25,7 +32,7 @@ export interface AuditEntry {
   action: AuditAction;
   /** The signed-in user who acted. Null for system actions. */
   actorUserId: string | null;
-  targetType?: "organization" | "member" | "invitation";
+  targetType?: "organization" | "member" | "invitation" | "customer" | "contact";
   targetId?: string;
   /** Details of the change. Never passwords, tokens or full documents. */
   metadata?: { [key: string]: JsonValue };

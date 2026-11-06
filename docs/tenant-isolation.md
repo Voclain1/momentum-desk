@@ -82,6 +82,11 @@ row-level security.
 column is not registered, or if a registered table lacks forced row-level
 security.
 
+Tenant tables so far: `auditLog`, `customer`, `contact` (which references
+`customer` through the composite key). Domain services such as
+`lib/customers/service.ts` receive `TenantData` (`lib/tenant`) instead of a
+database client, so they can only run scoped queries.
+
 `member` and `invitation` also carry an `organizationId` but are managed by
 Better Auth's organization plugin, which checks membership and role on every
 call (tests in `lib/auth/auth.db.test.ts`).

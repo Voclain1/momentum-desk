@@ -21,6 +21,8 @@ export interface AuthConfig {
   secret: string;
   /** Public origin, e.g. https://momentumdesk.app. Used to build emailed links. */
   baseURL?: string;
+  /** Other origins allowed to call auth endpoints, e.g. a Vercel preview's branch URL. */
+  trustedOrigins?: string[];
   /** Rate-limit auth endpoints. On by default in production. */
   rateLimit?: boolean;
 }
@@ -57,7 +59,7 @@ function organizationSnapshot(organization: Record<string, unknown>) {
 
 export const INVITATION_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60;
 
-export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig) {
+export function createAuth({ db, email, secret, baseURL, trustedOrigins, rateLimit }: AuthConfig) {
   const audit = (organizationId: string, entry: AuditEntry) =>
     recordAudit(createTenantDb(db, organizationId), entry);
 
@@ -66,6 +68,7 @@ export function createAuth({ db, email, secret, baseURL, rateLimit }: AuthConfig
     // Replaced by lib/workspaces/settings-service.ts.
     disabledPaths: ["/organization/update"],
     baseURL,
+    trustedOrigins,
     secret,
     database: prismaAdapter(db, { provider: "postgresql" }),
     rateLimit: {

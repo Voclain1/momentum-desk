@@ -5,7 +5,8 @@ import { z } from "zod";
  * deployment fails at startup rather than at first use. Secrets stay
  * server-side: never prefix them with NEXT_PUBLIC_.
  *
- * Variables for monitoring are added with the feature that uses them.
+ * Build-only variables (SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT for
+ * source map upload) are read by next.config.ts and are optional.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -21,6 +22,11 @@ const envSchema = z.object({
    * `openssl rand -base64 32`; use a different value per environment.
    */
   BETTER_AUTH_SECRET: z.string().min(32, { error: "must be at least 32 characters" }),
+  /**
+   * Sentry project DSN (decision D8). Not a secret: it only allows sending
+   * events, and the browser needs it. Unset turns error monitoring off.
+   */
+  NEXT_PUBLIC_SENTRY_DSN: z.url({ protocol: /^https$/, error: "must be an https:// Sentry DSN" }).optional(),
   /** Resend API key (decision D17). Without it, production cannot send email. */
   RESEND_API_KEY: z.string().startsWith("re_", { error: 'must be a Resend API key starting with "re_"' }).optional(),
   /** Sender, e.g. "MomentumDesk <no-reply@momentumdesk.app>", on a domain verified in Resend. */

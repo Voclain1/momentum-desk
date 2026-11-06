@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
       // The workspace record itself (the tenant root); re-checks membership
       // inside its own transaction.
       "lib/workspaces/**",
+      // Health check: a bare SELECT 1, no organization data.
+      "lib/observability/health.ts",
       "test/**",
       "e2e/**",
       "**/*.db.test.ts",
@@ -28,6 +30,8 @@ const eslintConfig = defineConfig([
           patterns: [
             {
               group: ["@/lib/db", "@/lib/db/*", "@/lib/generated/*", "**/lib/db", "**/lib/generated/*"],
+              // Types cannot run queries.
+              allowTypeImports: true,
               message:
                 "Use requireTenant() or tenantDb() from @/lib/tenant for organization data. Raw database access is limited to lib/db, lib/auth, lib/tenant and lib/workspaces.",
             },

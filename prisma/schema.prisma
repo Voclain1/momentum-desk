@@ -27,11 +27,12 @@ model User {
   createdAt     DateTime @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime @updatedAt @db.Timestamptz(3)
 
-  sessions    Session[]
-  accounts    Account[]
-  memberships Member[]
-  invitations Invitation[] @relation("InvitationInviter")
-  auditLogs   AuditLog[]
+  sessions         Session[]
+  accounts         Account[]
+  memberships      Member[]
+  invitations      Invitation[] @relation("InvitationInviter")
+  auditLogs        AuditLog[]
+  customersCreated Customer[]   @relation("CustomerCreatedBy")
 
   @@map("user")
 }
@@ -122,6 +123,8 @@ model Organization {
   members     Member[]
   invitations Invitation[]
   auditLogs   AuditLog[]
+  customers   Customer[]
+  contacts    Contact[]
 
   @@map("organization")
 }
@@ -202,4 +205,80 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@map("auditLog")
+}
+
+/// A business's customer: a person or an organization (spec §7.3). Master
+/// data only: quotes and invoices will snapshot what they need at issue time,
+/// so later edits here never change an issued document.
+model Customer {
+  id                String    @id @default(uuid(7))
+  organizationId    String
+  /// "person" or "organization".
+  type              String
+  /// The name used across the app, e.g. "Acme Solar".
+  displayName       String
+  /// Registered legal name, for invoices, when it differs.
+  legalName         String?
+  /// Stored lower-case.
+  email             String?
+  phone             String?
+  website           String?
+  /// VAT, TIN or similar, as the customer's tax authority writes it.
+  taxId             String?
+  /// ISO 3166-1 alpha-2. Never used to infer currency or language.
+  countryCode       String?
+  addressLine1      String?
+  addressLine2      String?
+  city              String?
+  region            String?
+  postalCode        String?
+  /// BCP 47, for documents and reminders sent to this customer.
+  preferredLocale   String?
+  preferredLanguage String?
+  /// ISO 4217. A default for new documents only; never overrides an
+  /// existing document's currency (spec §5.2).
+  preferredCurrency String?
+  tags              String[]  @default([])
+  notes             String?
+  /// Archived customers are hidden from lists but keep their history.
+  archivedAt        DateTime? @db.Timestamptz(3)
+  createdById       String?
+  /// Incremented on every edit; saves must name the version they started from.
+  version           Int       @default(1)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  contacts     Contact[]
+
+  /// Lets child tables reference (id, organizationId), so a child row can
+  /// never point at another organization's customer.
+  @@unique([id, organizationId])
+  @@index([organizationId, archivedAt, displayName])
+  @@index([organizationId, updatedAt])
+  @@map("customer")
+}
+
+/// A person at a customer: who to address quotes, invoices and reminders to.
+model Contact {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  customerId     String
+  name           String
+  /// Stored lower-case.
+  email          String?
+  phone          String?
+  jobTitle       String?
+  /// At most one primary contact per customer (partial unique index).
+  isPrimary      Boolean  @default(false)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Composite key: the contact's organization must be its customer's.
+  customer     Customer     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, customerId])
+  @@map("contact")
 }

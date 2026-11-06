@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -71,6 +72,9 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
   }
 
   const { organization } = membership;
+  // Lets error reports be traced to a workspace without any personal data.
+  Sentry.setUser({ id: user.id });
+  Sentry.setTag("organization_id", organization.id);
   return {
     user: { id: user.id, name: user.name, email: user.email },
     organization: {
