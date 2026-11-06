@@ -11,6 +11,13 @@ const LABELS: Record<AuditAction, string> = {
   "invitation.canceled": "cancelled an invitation",
   "invitation.accepted": "accepted an invitation",
   "invitation.rejected": "declined an invitation",
+  "customer.created": "added a customer",
+  "customer.updated": "updated a customer",
+  "customer.archived": "archived a customer",
+  "customer.restored": "restored a customer",
+  "contact.added": "added a contact",
+  "contact.updated": "updated a contact",
+  "contact.removed": "removed a contact",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

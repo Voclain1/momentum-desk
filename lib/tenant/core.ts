@@ -1,11 +1,13 @@
 import type { DbClient } from "@/lib/db/client";
-import type { AuditLog, Prisma } from "@/lib/generated/prisma/client";
+import type { AuditLog, Contact, Customer, Prisma } from "@/lib/generated/prisma/client";
 import { TENANT_MODELS, type TenantModel } from "./models";
 import { SCOPED_OPERATIONS, scopeArgs, TenantViolationError } from "./scope";
 
 /** Per-model create input and row types. Add each new tenant model here. */
 interface TenantModelTypes {
   auditLog: { create: Prisma.AuditLogUncheckedCreateInput; row: AuditLog };
+  customer: { create: Prisma.CustomerUncheckedCreateInput; row: Customer };
+  contact: { create: Prisma.ContactUncheckedCreateInput; row: Contact };
 }
 
 /** Create input without the organization, which tenantDb always sets. */
@@ -99,4 +101,20 @@ export function runTenantTransaction<T>(
 ): Promise<T> {
   if (!organizationId) throw new TenantViolationError("no organization id");
   return client.$transaction(async (tx) => work(await tenantInTransaction(tx, organizationId)));
+}
+
+/**
+ * What domain services receive instead of a database client: scoped access
+ * and scoped transactions only, so a service cannot run an unscoped query.
+ */
+export interface TenantData {
+  scoped(organizationId: string): TenantDb;
+  transaction<T>(organizationId: string, work: (tenant: TenantDb) => Promise<T>): Promise<T>;
+}
+
+export function createTenantData(client: DbClient): TenantData {
+  return {
+    scoped: (organizationId) => createTenantDb(client, organizationId),
+    transaction: (organizationId, work) => runTenantTransaction(client, organizationId, work),
+  };
 }

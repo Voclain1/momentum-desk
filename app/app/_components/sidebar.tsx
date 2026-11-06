@@ -1,27 +1,7 @@
 import Link from "next/link";
 import type { Workspace } from "@/lib/auth/session";
+import { NavLinks } from "./nav-links";
 import { SignOutButton } from "./sign-out-button";
-
-type NavItem = {
-  label: string;
-  icon: string;
-  /** Present once the module has a route; until then the item renders as "Soon". */
-  href?: "/app";
-  badge?: number;
-};
-
-// V1 modules from docs/product-spec.md §4, in lead-to-cash order.
-const navItems: NavItem[] = [
-  { label: "Overview", icon: "⌂", href: "/app" },
-  { label: "Customers", icon: "◍" },
-  { label: "Leads", icon: "◉" },
-  { label: "Pipeline", icon: "◇" },
-  { label: "Catalogue", icon: "▦" },
-  { label: "Quotes", icon: "▱" },
-  { label: "Invoices", icon: "▤" },
-  { label: "Payments", icon: "◎" },
-  { label: "Collections", icon: "↗", badge: 8 },
-];
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -49,22 +29,7 @@ export function Sidebar({ workspace }: { workspace: Workspace }) {
         </span>
         <span aria-hidden>⌄</span>
       </div>
-      <nav className="nav-list" aria-label="Primary navigation">
-        {navItems.map((item) =>
-          item.href ? (
-            <Link className="active" aria-current="page" href={item.href} key={item.label}>
-              <span aria-hidden>{item.icon}</span>
-              {item.label}
-            </Link>
-          ) : (
-            <span className="nav-soon" aria-disabled="true" key={item.label}>
-              <span aria-hidden>{item.icon}</span>
-              {item.label}
-              {item.badge !== undefined ? <em>{item.badge}</em> : <small>Soon</small>}
-            </span>
-          ),
-        )}
-      </nav>
+      <NavLinks />
       <div className="sidebar-spacer" />
       <div className="ai-card">
         <strong>

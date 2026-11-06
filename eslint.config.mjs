@@ -30,6 +30,8 @@ const eslintConfig = defineConfig([
           patterns: [
             {
               group: ["@/lib/db", "@/lib/db/*", "@/lib/generated/*", "**/lib/db", "**/lib/generated/*"],
+              // Types cannot run queries.
+              allowTypeImports: true,
               message:
                 "Use requireTenant() or tenantDb() from @/lib/tenant for organization data. Raw database access is limited to lib/db, lib/auth, lib/tenant and lib/workspaces.",
             },

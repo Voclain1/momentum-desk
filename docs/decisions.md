@@ -30,6 +30,7 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 | D22 | Tenant isolation | Accepted | Two independent layers: `tenantDb()` scopes every query in the app, and Postgres row-level security (forced) filters by a transaction-local organization setting. The app connects as a restricted role without `BYPASSRLS`; migrations use a separate owner URL | See `docs/tenant-isolation.md`. Neon's default owner role bypasses RLS, hence the role split. Cost: each tenant query runs in a short transaction (one extra round trip). |
 | D23 | Base currency after creation | Accepted | Fixed. The settings service refuses it and a database trigger rejects the change from any path | Spec §5.4: reports must keep their meaning. Rebasing needs a future decision on exchange-rate history. From the Codex workspace-foundations work. |
 | D24 | Changing workspace settings | Accepted | Only through `lib/workspaces/settings-service.ts`: permission re-checked inside a serialisable transaction, compare-and-set on `settingsVersion`, audit entry in the same transaction. Better Auth's organization update endpoint is disabled | Design from the Codex workspace-foundations work, implemented on Prisma and Postgres. |
+| D25 | Removing customers | Accepted (archive) / Open (erasure) | Customers are archived, never deleted, in V1: hidden from lists, history kept. Contacts can be removed | Permanent deletion and data-subject erasure need a retention policy (spec §9: "define deletion, retention, export and audit policies") before quotes and invoices reference customers. |
 
 ## Change history
 
@@ -41,3 +42,4 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 - 2026-10-30 — Team management and invitations added. D17 now also blocks accepting invitations in production (invitees must confirm their email).
 - 2026-10-30 — D17 accepted: Resend chosen by the owner. Production email (sign-in links, resets, confirmation, invitations) works once the domain is verified and the two variables are set.
 - 2026-11-06 — D8 implemented (Sentry with event scrubbing); D9 deployment path prepared (`vercel-build`, preview origins, `docs/go-live.md`). Health check added. Remaining go-live work is account setup by the owner.
+- 2026-11-06 — M1 started: customers and contacts. D25 recorded.

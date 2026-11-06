@@ -34,7 +34,10 @@ Done:
 
 **Going live:** [`docs/go-live.md`](docs/go-live.md) lists every account, key and setup step in order.
 
-Next: M1 (customers, leads and pipeline).
+## M1 (customers, leads and pipeline): in progress
+
+- Customers and contacts (`/app/customers`, `lib/customers`): people or organizations with contact, address, tax and preference details (preferred currency is a default only), tags and notes; several contacts each, one primary. Search across names, emails, tax IDs, contacts and tags; filter, sort and page. Archive and restore instead of delete. Version-checked edits, audited by field name. Owner, admin, sales and finance can view and edit; member cannot
+- Next: leads and pipeline stages, then activity, notes and tasks, then conversion, duplicates and import/export
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
 

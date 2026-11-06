@@ -31,17 +31,17 @@ const tagInput = z.string().trim().max(MAX_TAG_LENGTH).transform(canonicalTag);
 
 const languageNames = new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
 
-const currencyCode = z.string().refine(isCurrencyCode, {
+export const currencyCode = z.string().refine(isCurrencyCode, {
   error: "must be a supported ISO 4217 currency code",
 });
 
 /** An assigned ISO 3166-1 alpha-2 code, upper case (lib/geo/countries.ts). */
-const countryCode = z.string().trim().toUpperCase().refine(isCountryCode, {
+export const countryCode = z.string().trim().toUpperCase().refine(isCountryCode, {
   error: "must be an assigned upper-case ISO 3166-1 alpha-2 code, e.g. GB",
 });
 
 /** A canonical BCP 47 tag the runtime can format numbers and dates with. */
-const locale = tagInput.refine(
+export const locale = tagInput.refine(
   (tag) => {
     try {
       return Intl.getCanonicalLocales(tag)[0] === tag && Intl.NumberFormat.supportedLocalesOf([tag]).length === 1;
@@ -53,7 +53,7 @@ const locale = tagInput.refine(
 );
 
 /** A canonical BCP 47 language tag the runtime recognises, e.g. "en", "fr", "pt-BR". */
-const language = tagInput.refine(
+export const language = tagInput.refine(
   (tag) => {
     try {
       return Intl.getCanonicalLocales(tag)[0] === tag && languageNames.of(tag) !== undefined;
