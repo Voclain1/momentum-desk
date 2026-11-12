@@ -41,6 +41,13 @@ export const LABELS: Record<AuditAction, string> = {
   "product.updated": "updated a product",
   "product.deactivated": "deactivated a product",
   "product.reactivated": "reactivated a product",
+  "quote.created": "created a quote",
+  "quote.updated": "edited a draft quote",
+  "quote.deleted": "deleted a draft quote",
+  "quote.sent": "sent a quote",
+  "quote.revised": "started a quote revision",
+  "quote.duplicated": "duplicated a quote",
+  "quote.numbering_updated": "changed quote numbering",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

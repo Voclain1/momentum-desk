@@ -40,6 +40,7 @@ model User {
   tasksCreated     Task[]       @relation("TaskCreatedBy")
   tasksCompleted   Task[]       @relation("TaskCompletedBy")
   productsCreated  Product[]    @relation("ProductCreatedBy")
+  quotesCreated    Quote[]      @relation("QuoteCreatedBy")
 
   @@map("user")
 }
@@ -139,6 +140,9 @@ model Organization {
   taxRates    TaxRate[]
   products    Product[]
   prices      ProductPrice[]
+  sequences   DocumentSequence[]
+  quotes      Quote[]
+  quoteItems  QuoteItem[]
 
   @@map("organization")
 }
@@ -268,6 +272,7 @@ model Customer {
   activities   Activity[]
   tasks        Task[]
   leads        Lead[]
+  quotes       Quote[]
 
   /// Lets child tables reference (id, organizationId), so a child row can
   /// never point at another organization's customer.
@@ -373,6 +378,7 @@ model Lead {
   customer     Customer?     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
   activities   Activity[]
   tasks        Task[]
+  quotes       Quote[]
 
   /// Lets activities and tasks reference (id, organizationId).
   @@unique([id, organizationId])
@@ -492,6 +498,7 @@ model Product {
   updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quoteItems   QuoteItem[]
   /// Composite key: the default tax rate must be the same workspace's.
   taxRate      TaxRate?       @relation(fields: [taxRateId, organizationId], references: [id, organizationId], onDelete: NoAction)
   createdBy    User?          @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -521,4 +528,124 @@ model ProductPrice {
   @@unique([productId, currency])
   @@index([organizationId, productId])
   @@map("productPrice")
+}
+
+/// Display numbers for documents, per workspace and kind ("quote"; later
+/// "invoice"). Numbers are display identifiers, never keys (spec §9).
+model DocumentSequence {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  kind           String
+  /// e.g. "Q-". Configurable in Settings.
+  prefix         String
+  /// The next number to hand out.
+  nextNumber     Int      @default(1)
+  /// Minimum digits, zero-padded: 4 gives Q-0001.
+  padding        Int      @default(4)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind])
+  @@map("documentSequence")
+}
+
+/// One revision of a quote (spec §7.5). Revisions share a number; sending a
+/// new revision supersedes the previous one. Only drafts change; a sent quote
+/// is a fixed snapshot, and an accepted one is never revised.
+model Quote {
+  id                 String    @id @default(uuid(7))
+  organizationId     String
+  /// Display number, e.g. "Q-0042", shared by all revisions.
+  number             String
+  revision           Int       @default(1)
+  /// The revision this one replaces.
+  previousId         String?
+  /// "draft", "sent", "accepted", "rejected" or "superseded". "Viewed" and
+  /// "expired" are shown from viewedAt and expiresOn, not stored.
+  status             String    @default("draft")
+  customerId         String
+  /// The lead this quote is for, if any (spec §7.2 → §7.5).
+  leadId             String?
+  /// ISO 4217; every line is in this currency (spec §5.2).
+  currency           String
+  /// "exclusive" or "inclusive" (decision D14).
+  taxMode            String
+  /// Calendar dates in the workspace's timezone.
+  issuedOn           DateTime  @db.Date
+  expiresOn          DateTime  @db.Date
+  /// Who the quote is addressed to, copied when saved.
+  recipientName      String?
+  recipientEmail     String?
+  /// The customer's billing details as they were when the quote was saved;
+  /// fixed once sent.
+  customerSnapshot   Json
+  notes              String?
+  terms              String?
+  /// Totals from lib/documents/calc (decision D12), in minor units of currency.
+  subtotalMinor      BigInt    @default(0)
+  discountMinor      BigInt    @default(0)
+  taxMinor           BigInt    @default(0)
+  totalMinor         BigInt    @default(0)
+  /// One entry per tax rate: name, rate, base and tax (amounts as strings).
+  taxLines           Json      @default("[]")
+  sentAt             DateTime? @db.Timestamptz(3)
+  /// First time the customer opened the public link.
+  viewedAt           DateTime? @db.Timestamptz(3)
+  acceptedAt         DateTime? @db.Timestamptz(3)
+  rejectedAt         DateTime? @db.Timestamptz(3)
+  createdById        String?
+  version            Int       @default(1)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Composite keys: the customer, lead and previous revision are this workspace's.
+  customer     Customer     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  lead         Lead?        @relation(fields: [leadId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  previous     Quote?       @relation("QuoteRevision", fields: [previousId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  revisions    Quote[]      @relation("QuoteRevision")
+  createdBy    User?        @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items        QuoteItem[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, number, revision])
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, customerId])
+  @@index([organizationId, leadId])
+  @@map("quote")
+}
+
+/// A quote line. Everything it shows is copied here (spec §7.4), so catalogue
+/// and tax-rate edits never change it.
+model QuoteItem {
+  id               String  @id @default(uuid(7))
+  organizationId   String
+  quoteId          String
+  position         Int
+  /// The catalogue product it came from, if any; for reference only.
+  productId        String?
+  description      String
+  /// Thousandths: 1.5 is 1500 (decision D12).
+  quantityMilli    BigInt
+  unit             String?
+  unitPriceMinor   BigInt
+  /// "none", "percent" (value in thousandths of a percent) or "fixed" (minor units).
+  discountKind     String  @default("none")
+  discountValue    BigInt  @default(0)
+  /// Copied from the tax rate: its id groups lines into one tax line.
+  taxRateId        String?
+  taxName          String?
+  taxMilliPercent  Int?
+  grossMinor       BigInt
+  discountMinor    BigInt
+  netMinor         BigInt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote        @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  @@unique([quoteId, position])
+  @@index([organizationId, quoteId])
+  @@map("quoteItem")
 }

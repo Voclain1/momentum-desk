@@ -47,7 +47,14 @@ export type AuditAction =
   | "product.created"
   | "product.updated"
   | "product.deactivated"
-  | "product.reactivated";
+  | "product.reactivated"
+  | "quote.created"
+  | "quote.updated"
+  | "quote.deleted"
+  | "quote.sent"
+  | "quote.revised"
+  | "quote.duplicated"
+  | "quote.numbering_updated";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -55,7 +62,7 @@ export interface AuditEntry {
   action: AuditAction;
   /** The signed-in user who acted. Null for system actions. */
   actorUserId: string | null;
-  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task" | "tax_rate" | "product";
+  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task" | "tax_rate" | "product" | "quote";
   targetId?: string;
   /** Details of the change. Never passwords, tokens or full documents. */
   metadata?: { [key: string]: JsonValue };

@@ -1,6 +1,7 @@
 import type { DbClient } from "@/lib/db/client";
 import type {
-  Activity, AuditLog, Contact, Customer, Lead, PipelineStage, Prisma, Product, ProductPrice, Task, TaxRate,
+  Activity, AuditLog, Contact, Customer, DocumentSequence, Lead, PipelineStage, Prisma, Product, ProductPrice, Quote, QuoteItem,
+  Task, TaxRate,
 } from "@/lib/generated/prisma/client";
 import { TENANT_MODELS, type TenantModel } from "./models";
 import { SCOPED_OPERATIONS, scopeArgs, TenantViolationError } from "./scope";
@@ -17,6 +18,9 @@ interface TenantModelTypes {
   taxRate: { create: Prisma.TaxRateUncheckedCreateInput; row: TaxRate };
   product: { create: Prisma.ProductUncheckedCreateInput; row: Product };
   productPrice: { create: Prisma.ProductPriceUncheckedCreateInput; row: ProductPrice };
+  documentSequence: { create: Prisma.DocumentSequenceUncheckedCreateInput; row: DocumentSequence };
+  quote: { create: Prisma.QuoteUncheckedCreateInput; row: Quote };
+  quoteItem: { create: Prisma.QuoteItemUncheckedCreateInput; row: QuoteItem };
 }
 
 /** Create input without the organization, which tenantDb always sets. */
