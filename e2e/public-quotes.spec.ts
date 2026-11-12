@@ -1,19 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
 import { lastEmailTo } from "./outbox";
 
 const PASSWORD = "correct horse battery staple";
 let ip = 1;
-
-async function sql(query: string, values: unknown[]) {
-  const client = new Client({ connectionString: process.env.TEST_DATABASE_URL });
-  await client.connect();
-  try {
-    return (await client.query(query, values)).rows;
-  } finally {
-    await client.end();
-  }
-}
 
 async function newUserWithWorkspace(page: Page, name: string, workspace: string) {
   await page.setExtraHTTPHeaders({ "x-forwarded-for": `198.51.100.${120 + ip++}` });
@@ -32,20 +21,6 @@ async function newUserWithWorkspace(page: Page, name: string, workspace: string)
   await page.getByRole("button", { name: "Create workspace" }).click();
   await expect(page).toHaveURL(/\/app$/);
   return email;
-}
-
-/** Adds a new user to the owner's workspace (found by the owner's unique email). */
-async function joinAs(browser: import("@playwright/test").Browser, ownerEmail: string, role: string, name: string) {
-  const page = await browser.newPage();
-  const email = await newUserWithWorkspace(page, name, `${name} Shop`);
-  const [{ organizationId }] = await sql(
-    `SELECT "organizationId" FROM member m JOIN "user" u ON u.id = m."userId" WHERE u.email = $1`,
-    [ownerEmail],
-  );
-  const [{ id: userId }] = await sql(`SELECT id FROM "user" WHERE email = $1`, [email]);
-  await sql(`INSERT INTO member (id, "organizationId", "userId", role) VALUES (gen_random_uuid()::text, $1, $2, $3)`, [organizationId, userId, role]);
-  await sql(`UPDATE session SET "activeOrganizationId" = $1 WHERE "userId" = $2`, [organizationId, userId]);
-  return page;
 }
 
 /** A customer with an email and a sent quote; returns the quote page URL. */
@@ -83,6 +58,11 @@ test("the customer opens the emailed quote and accepts it with a code; the evide
   // The customer has no account and no session.
   const customer = await (await browser.newContext()).newPage();
   await customer.goto(link);
+  const pdf = await customer.request.get(`${link}/pdf`);
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()["content-type"]).toBe("application/pdf");
+  expect(pdf.headers()["content-disposition"]).toContain('filename="Q-0001.pdf"');
+  expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
   const document = customer.getByRole("article", { name: "Quote Q-0001" });
   await expect(document).toContainText("Okafor Farms");
   await expect(document).toContainText("₦370,000.00");
@@ -150,5 +130,10 @@ test("a shared link can be declined, superseded or revoked", async ({ page, brow
   await expect(page.getByText("1 link revoked.")).toBeVisible();
   const response = await customer.goto(second);
   expect(response?.status()).toBe(404);
+  expect((await customer.request.get(`${second}/pdf`)).status()).toBe(404);
+  // Staff can still download every revision, with their session.
+  const staffPdf = await page.request.get(`${quoteUrl}/pdf`);
+  expect(staffPdf.status()).toBe(200);
+  expect(staffPdf.headers()["content-disposition"]).toContain('filename="Q-0001.pdf"');
   await expect(customer.getByRole("article")).toHaveCount(0);
 });

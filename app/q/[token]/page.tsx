@@ -45,6 +45,9 @@ export default async function PublicQuotePage({ params }: PageProps<"/q/[token]"
         <p role="status" className="settings-message error public-banner">This quote has expired. Contact {seller.name} for a new one.</p>
       ) : null}
       <QuoteDocument quote={quote} seller={seller.name} locale={seller.locale} />
+      <p className="public-download">
+        <a href={`/q/${token}/pdf`} className="link-button" download>Download PDF</a>
+      </p>
       {view.open ? (
         <Respond
           requestCode={requestCodeAction.bind(null, token)}

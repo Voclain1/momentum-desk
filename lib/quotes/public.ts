@@ -297,3 +297,15 @@ export async function rejectQuote(deps: PublicDeps, token: string, input: unknow
     return { ok: true, message: `You declined quote ${quote.number}. Your answer has been recorded for ${link.organization.name}.` };
   });
 }
+
+/** The quote behind a live link, for its PDF; null where the page would show nothing. Records nothing. */
+export async function quoteForDownload(deps: PublicDeps, token: string) {
+  const now = deps.now?.() ?? new Date();
+  const link = await deps.links.quoteLink(token);
+  if (!link || link.revokedAt) return null;
+  return deps.data.transaction(link.organizationId, async (tenant) => {
+    const loaded = await load(deps, tenant, link, now);
+    if (!loaded || loaded.quote.status === "superseded") return null;
+    return { quote: loaded.quote, seller: link.organization };
+  });
+}

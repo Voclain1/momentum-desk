@@ -89,6 +89,9 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
             </p>
           </div>
         </div>
+        <p className="quote-download">
+          <a href={`/app/quotes/${quote.id}/pdf`} className="link-button" download>Download PDF</a>
+        </p>
         {canEdit ? (
           <QuoteActions
             send={isDraft ? sendQuoteAction.bind(null, quote.id, quote.version) : undefined}

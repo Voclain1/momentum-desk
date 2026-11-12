@@ -1,5 +1,4 @@
-import { formatScaled } from "@/lib/documents/calc";
-import { formatPercent } from "@/lib/catalogue/schema";
+import { dateText, discountText, partyLines, quantityText, taxLineLabel, taxLinesOf, taxText } from "@/lib/documents/present";
 import { formatMoney, money } from "@/lib/money";
 
 export interface QuoteDocumentData {
@@ -33,26 +32,6 @@ export interface QuoteDocumentData {
   }[];
 }
 
-interface Snapshot {
-  name?: string;
-  legalName?: string | null;
-  taxId?: string | null;
-  addressLine1?: string | null;
-  addressLine2?: string | null;
-  city?: string | null;
-  region?: string | null;
-  postalCode?: string | null;
-  countryCode?: string | null;
-}
-
-interface TaxLine {
-  taxRateId: string;
-  name: string;
-  milliPercent: number;
-  baseMinor: string;
-  taxMinor: string;
-}
-
 /**
  * A quote as the customer sees it: the copied snapshot, never live customer
  * or catalogue data. Amounts are shown in the quote's currency only, in the
@@ -60,15 +39,10 @@ interface TaxLine {
  */
 export function QuoteDocument({ quote, seller, locale }: { quote: QuoteDocumentData; seller: string; locale: string }) {
   const show = (minor: bigint) => formatMoney(money(minor, quote.currency), locale);
-  const date = new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" });
-  const customer = (quote.customerSnapshot ?? {}) as Snapshot;
-  const taxLines = (Array.isArray(quote.taxLines) ? quote.taxLines : []) as TaxLine[];
+  const date = (value: Date) => dateText(value, locale);
+  const customer = partyLines(quote.customerSnapshot, locale);
+  const taxLines = taxLinesOf(quote.taxLines);
   const inclusive = quote.taxMode === "inclusive";
-  const country = customer.countryCode ? new Intl.DisplayNames([locale], { type: "region" }).of(customer.countryCode) : null;
-  const address = [
-    customer.addressLine1, customer.addressLine2,
-    [customer.city, customer.region, customer.postalCode].filter(Boolean).join(", "), country,
-  ].filter(Boolean);
 
   return (
     <article className="quote-document" aria-label={`Quote ${quote.number}`}>
@@ -78,19 +52,19 @@ export function QuoteDocument({ quote, seller, locale }: { quote: QuoteDocumentD
           <h2>Quote {quote.number}{quote.revision > 1 ? ` (revision ${quote.revision})` : ""}</h2>
         </div>
         <dl>
-          <div><dt>Issued</dt><dd>{date.format(quote.issuedOn)}</dd></div>
-          <div><dt>Valid until</dt><dd>{date.format(quote.expiresOn)}</dd></div>
+          <div><dt>Issued</dt><dd>{date(quote.issuedOn)}</dd></div>
+          <div><dt>Valid until</dt><dd>{date(quote.expiresOn)}</dd></div>
           <div><dt>Currency</dt><dd>{quote.currency}</dd></div>
         </dl>
       </header>
       <section className="quote-parties">
         <div>
           <h3>For</h3>
-          <p><strong>{customer.legalName ?? customer.name}</strong></p>
-          {address.map((line, index) => <p key={index}>{line}</p>)}
+          <p><strong>{customer.name}</strong></p>
+          {customer.address.map((line, index) => <p key={index}>{line}</p>)}
           {customer.taxId ? <p>Tax ID: {customer.taxId}</p> : null}
         </div>
-        {quote.recipientName && quote.recipientName !== customer.name ? (
+        {quote.recipientName && quote.recipientName !== customer.displayName ? (
           <div>
             <h3>Attention</h3>
             <p>{quote.recipientName}</p>
@@ -113,12 +87,10 @@ export function QuoteDocument({ quote, seller, locale }: { quote: QuoteDocumentD
           {quote.items.map((item) => (
             <tr key={item.id}>
               <td className="description">{item.description}</td>
-              <td className="num">{formatScaled(item.quantityMilli, 3)}{item.unit ? ` ${item.unit}` : ""}</td>
+              <td className="num">{quantityText(item.quantityMilli, item.unit)}</td>
               <td className="num">{show(item.unitPriceMinor)}</td>
-              <td className="num">
-                {item.discountKind === "percent" ? `${formatScaled(item.discountValue, 3)}%` : item.discountKind === "fixed" ? show(item.discountValue) : "—"}
-              </td>
-              <td>{item.taxName ? `${item.taxName} ${formatPercent(item.taxMilliPercent ?? 0)}%` : "—"}</td>
+              <td className="num">{discountText(item, show)}</td>
+              <td>{taxText(item)}</td>
               <td className="num">{show(item.netMinor)}</td>
             </tr>
           ))}
@@ -129,9 +101,7 @@ export function QuoteDocument({ quote, seller, locale }: { quote: QuoteDocumentD
         {quote.discountMinor > 0n ? <div><dt>Discounts included</dt><dd>{show(quote.discountMinor)}</dd></div> : null}
         {taxLines.map((tax) => (
           <div key={tax.taxRateId}>
-            <dt>
-              {tax.name} {formatPercent(tax.milliPercent)}%{inclusive ? " included" : ""} on {show(BigInt(tax.baseMinor))}
-            </dt>
+            <dt>{taxLineLabel(tax, inclusive, show)}</dt>
             <dd>{show(BigInt(tax.taxMinor))}</dd>
           </div>
         ))}

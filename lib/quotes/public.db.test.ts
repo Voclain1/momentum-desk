@@ -6,7 +6,7 @@ import { RecordConflictError } from "@/lib/errors";
 import { createTenantData } from "@/lib/tenant/core";
 import { createPublicLinks } from "@/lib/tenant/public";
 import { createTestDb, disconnectOwnerDb, resetDatabase } from "@/test/db";
-import { confirmAcceptance, contentHash, openQuote, rejectQuote, requestAcceptanceCode } from "./public";
+import { confirmAcceptance, contentHash, openQuote, quoteForDownload, rejectQuote, requestAcceptanceCode } from "./public";
 import { createQuote, getQuote, reviseQuote, sendQuote } from "./service";
 import { createShareLink, emailQuote, quoteActivity, revokeShareLinks } from "./sharing";
 
@@ -216,3 +216,20 @@ describe("rejection", () => {
     expect(await openQuote(deps(), token, visitor)).toEqual({ state: "superseded", seller: "Bright Solar" });
   });
 });
+
+describe("downloads", () => {
+  it("serves the PDF data only while the link would show the quote", async () => {
+    const { actor, quote, token } = await sentQuote();
+    expect(await quoteForDownload(deps(), token)).toMatchObject({ quote: { id: quote.id }, seller: { name: "Bright Solar" } });
+    expect(await quoteForDownload(deps(), "B".repeat(43))).toBeNull();
+    // Downloading is not a view.
+    expect((await quoteActivity(data, actor.organizationId, quote.id)).events).toEqual([]);
+    const revision = await reviseQuote(data, actor, quote.id, { today: "2026-11-12" });
+    await sendQuote(data, actor, revision.id, 1, { today: "2026-11-12" });
+    expect(await quoteForDownload(deps(), token)).toBeNull();
+    const { token: second } = await createShareLink(data, actor, revision.id);
+    await revokeShareLinks(data, actor, revision.id);
+    expect(await quoteForDownload(deps(), second)).toBeNull();
+  });
+});
+

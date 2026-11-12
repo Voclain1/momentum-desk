@@ -52,3 +52,4 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 - 2026-11-12 — Lead conversion, duplicate detection and CSV import/export added (M1). D28 and D29 recorded.
 - 2026-11-12 — M2 started. D13–D16 decided by the owner from recommendations (D15 strengthened with an emailed code); D12 set.
 - 2026-11-12 — Catalogue, tax rates and the quote builder added (M2). Quote statuses stored: draft, sent, accepted, rejected, superseded; "viewed" and "expired" are shown from dates. Quote-to-invoice conversion moves to the start of M3, where the invoice model is built.
+- 2026-11-12 — Public quote page, acceptance by emailed code and quote PDF added (M2). PDFs are drawn with pdf-lib (no browser engine, so they run in any serverless function) with DejaVu Sans embedded for currency signs; right-to-left and complex scripts are not shaped yet. Document visual design waits for the design system.

@@ -158,6 +158,7 @@ test("finance cannot see quotes", async ({ browser }) => {
   const quoteUrl = owner.url();
 
   const finance = await joinAs(browser, ownerEmail, "finance", "Fola Finance");
+  expect((await finance.request.get(`${quoteUrl}/pdf`)).status()).toBe(403);
   for (const path of ["/app/quotes", quoteUrl, "/app/quotes/new"]) {
     await finance.goto(path);
     await expect(finance.getByText("Your role does not include access to this page.")).toBeVisible();
