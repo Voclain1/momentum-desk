@@ -86,7 +86,8 @@ Tenant tables so far: `auditLog`, `customer`, `contact` (references
 `customer` through the composite key), `pipelineStage`, `lead`
 (references `pipelineStage` and, once converted, `customer` through
 composite keys), `activity` and
-`task` (reference `lead` or `customer` through composite keys). Domain services such as
+`task` (reference `lead` or `customer` through composite keys), `taxRate`,
+`product` (references `taxRate`) and `productPrice` (references `product`). Domain services such as
 `lib/customers/service.ts` receive `TenantData` (`lib/tenant`) instead of a
 database client, so they can only run scoped queries. Duplicate checks,
 conversion and CSV import/export (`lib/records`, `lib/leads/conversion.ts`,
