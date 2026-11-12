@@ -84,10 +84,14 @@ security.
 
 Tenant tables so far: `auditLog`, `customer`, `contact` (references
 `customer` through the composite key), `pipelineStage`, `lead`
-(references `pipelineStage` through the composite key), `activity` and
+(references `pipelineStage` and, once converted, `customer` through
+composite keys), `activity` and
 `task` (reference `lead` or `customer` through composite keys). Domain services such as
 `lib/customers/service.ts` receive `TenantData` (`lib/tenant`) instead of a
-database client, so they can only run scoped queries.
+database client, so they can only run scoped queries. Duplicate checks,
+conversion and CSV import/export (`lib/records`, `lib/leads/conversion.ts`,
+`lib/transfer`) use the same scoped access, so a match, a link or an export
+never reaches another workspace (tests in their `*.db.test.ts` files).
 
 `member` and `invitation` also carry an `organizationId` but are managed by
 Better Auth's organization plugin, which checks membership and role on every
