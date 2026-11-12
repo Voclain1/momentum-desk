@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthorizationError, type Permission } from "@/lib/auth/authorization";
 import { todayIn } from "@/lib/dates";
@@ -16,6 +17,9 @@ import {
   voidInvoice,
 } from "@/lib/invoices/service";
 import { invoiceSettings, updateInvoiceSettings } from "@/lib/invoices/settings";
+import { createInvoiceLink, emailInvoice, invoicePath, revokeInvoiceLinks } from "@/lib/invoices/sharing";
+import { EmailNotConfiguredError } from "@/lib/email";
+import { emailSender, publicOrigin } from "@/lib/email/server";
 import { recordPayment, voidPayment } from "@/lib/payments/service";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
@@ -209,5 +213,46 @@ export async function updateInvoiceSettingsAction(_: FormState, form: FormData):
     });
     revalidatePath("/app/settings");
     return { status: "saved", message: "Invoice settings saved." };
+  });
+}
+
+export type ShareState = FormState | { status: "link"; message: string; url: string };
+
+async function origin() {
+  const h = await headers();
+  return publicOrigin(`${h.get("x-forwarded-proto") ?? "http"}://${h.get("x-forwarded-host") ?? h.get("host") ?? "localhost"}`);
+}
+
+export async function createInvoiceLinkAction(id: string): Promise<ShareState> {
+  let url = "";
+  const state = await write("invoices:write", async ({ actor }) => {
+    const { token } = await createInvoiceLink(tenantData, actor, id);
+    url = new URL(invoicePath(token), await origin()).toString();
+    refresh(id);
+    return { status: "saved", message: "Link created." };
+  });
+  return state.status === "saved" ? { status: "link", message: "Copy this link now: it is shown only once.", url } : state;
+}
+
+export async function emailInvoiceAction(id: string, seller: string): Promise<ShareState> {
+  return write("invoices:write", async ({ actor, locale }) => {
+    try {
+      const { sentTo } = await emailInvoice(tenantData, actor, id, { appUrl: await origin(), seller, locale, email: emailSender });
+      refresh(id);
+      return { status: "saved", message: `Invoice emailed to ${sentTo}.` };
+    } catch (error) {
+      if (error instanceof EmailNotConfiguredError) {
+        return { status: "error", message: "Email is not set up for this workspace yet. Create a link and send it yourself." };
+      }
+      throw error;
+    }
+  });
+}
+
+export async function revokeInvoiceLinksAction(id: string): Promise<ShareState> {
+  return write("invoices:write", async ({ actor }) => {
+    const { revoked } = await revokeInvoiceLinks(tenantData, actor, id);
+    refresh(id);
+    return { status: "saved", message: revoked ? `${revoked} ${revoked === 1 ? "link" : "links"} revoked.` : "No active links." };
   });
 }

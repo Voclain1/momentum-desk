@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/app/quotes/\\[id\\]/pdf": ["./lib/documents/fonts/**/*"],
     "/q/\\[token\\]/pdf": ["./lib/documents/fonts/**/*"],
+    "/app/invoices/\\[id\\]/pdf": ["./lib/documents/fonts/**/*"],
+    "/i/\\[token\\]/pdf": ["./lib/documents/fonts/**/*"],
   },
   experimental: {
     // CSV imports accept files up to 1 MB (lib/transfer); leave room for

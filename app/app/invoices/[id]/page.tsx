@@ -6,6 +6,7 @@ import { todayIn } from "@/lib/dates";
 import { formatScaled } from "@/lib/documents/calc";
 import { RecordNotFoundError } from "@/lib/errors";
 import { getInvoice, invoiceStatus } from "@/lib/invoices/service";
+import { invoiceActivity } from "@/lib/invoices/sharing";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
 import { PAYMENT_METHODS } from "@/lib/payments/service";
@@ -15,8 +16,12 @@ import { NoAccess } from "../../_components/no-access";
 import { newLine } from "../../quotes/builder-values";
 import { builderOptions } from "../../quotes/page-data";
 import { QuoteBuilder } from "../../quotes/quote-builder";
+import { SharePanel } from "../../quotes/share-panel";
 import {
+  createInvoiceLinkAction,
   deleteDraftAction,
+  emailInvoiceAction,
+  revokeInvoiceLinksAction,
   disputeAction,
   issueInvoiceAction,
   recordPaymentAction,
@@ -52,6 +57,8 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
   const date = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: organization.timezone });
   const day = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: "UTC" });
   const outstanding = invoice.totalMinor - invoice.paidMinor;
+  const activity = isDraft ? { links: [], events: [] } : await invoiceActivity(tenantData, organization.id, invoice.id);
+  const time = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeStyle: "short", timeZone: organization.timezone });
 
   const header = (
     <header className="topbar">
@@ -125,6 +132,36 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
         </ul>
       </section>
 
+      {!isDraft ? (
+        <p className="quote-download">
+          <a href={`/app/invoices/${invoice.id}/pdf`} className="link-button" download>Download PDF</a>
+        </p>
+      ) : null}
+      {invoice.status === "issued" && canEdit ? (
+        <SharePanel
+          email={emailInvoiceAction.bind(null, invoice.id, organization.name)}
+          createLink={createInvoiceLinkAction.bind(null, invoice.id)}
+          revoke={revokeInvoiceLinksAction.bind(null, invoice.id)}
+          recipientEmail={invoice.recipientEmail}
+          activeLinks={activity.links.filter((link) => !link.revokedAt).length}
+          stopsWhen="when revoked"
+        />
+      ) : null}
+      {activity.events.length ? (
+        <section className="panel contacts-panel" aria-label="Customer activity">
+          <div className="panel-heading"><div><h3>Customer activity</h3><p>Views of the invoice&apos;s link.</p></div></div>
+          <ul className="contact-list">
+            {activity.events.map((event) => (
+              <li key={event.id}>
+                <div>
+                  <strong>Viewed</strong>
+                  <small>{time.format(event.createdAt)}{event.ipAddress ? ` · from ${event.ipAddress}` : ""}</small>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {invoice.status !== "draft" && tenant.can("payments:read") ? (
         <section className="panel contacts-panel" aria-label="Payments">
           <div className="panel-heading">

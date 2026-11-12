@@ -96,7 +96,7 @@ test("a shared link can be declined, superseded or revoked", async ({ page, brow
   await newUserWithWorkspace(page, "Vic Owner", "Volt Co");
   const quoteUrl = await sentQuote(page, unique("bola"));
   await page.getByRole("button", { name: "Create link" }).click();
-  const link = await page.getByLabel("Quote link").inputValue();
+  const link = await page.getByLabel("Share link").inputValue();
   expect(link).toMatch(/\/q\/[A-Za-z0-9_-]{43}$/);
 
   const customer = await (await browser.newContext()).newPage();
@@ -122,7 +122,7 @@ test("a shared link can be declined, superseded or revoked", async ({ page, brow
 
   // Revoked links look like links that never existed.
   await page.getByRole("button", { name: "Create link" }).click();
-  const second = await page.getByLabel("Quote link").inputValue();
+  const second = await page.getByLabel("Share link").inputValue();
   await customer.goto(second);
   await expect(customer.getByRole("article", { name: "Quote Q-0001" })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());

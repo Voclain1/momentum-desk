@@ -12,12 +12,15 @@ export function SharePanel({
   revoke,
   recipientEmail,
   activeLinks,
+  stopsWhen = "when revoked or when a newer revision is sent",
 }: {
   email?: Run;
   createLink: Run;
   revoke: Run;
   recipientEmail: string | null;
   activeLinks: number;
+  /** When links stop working, for the explanation. */
+  stopsWhen?: string;
 }) {
   const [pending, start] = useTransition();
   const [state, setState] = useState<ShareState>({ status: "idle" });
@@ -33,7 +36,7 @@ export function SharePanel({
           <h3>Share with the customer</h3>
           <p>
             {activeLinks ? `${activeLinks} active ${activeLinks === 1 ? "link" : "links"}.` : "No active links."} Anyone with a link can
-            view the quote; links stop working when revoked or when a newer revision is sent.
+            view it; links stop working {stopsWhen}.
           </p>
         </div>
       </div>
@@ -43,7 +46,7 @@ export function SharePanel({
         {state.status === "link" ? (
           <div className="share-link">
             <p role="status" className="settings-message saved">{state.message}</p>
-            <input readOnly aria-label="Quote link" value={state.url} onFocus={(e) => e.currentTarget.select()} />
+            <input readOnly aria-label="Share link" value={state.url} onFocus={(e) => e.currentTarget.select()} />
             <button type="button" className="link-button" onClick={() => navigator.clipboard?.writeText(state.url)}>Copy</button>
           </div>
         ) : null}

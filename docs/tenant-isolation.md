@@ -93,7 +93,9 @@ revision), `quoteItem` (references `quote` and `product`), `quoteLink`,
 `quoteEvent` and `quoteAcceptanceCode` (reference `quote`), `invoice`
 (references `customer`, `lead` and `quote`), `invoiceItem`, `payment`
 (references `customer`), `paymentAllocation` (references `payment` and
-`invoice`) and `invoiceSettings`.
+`invoice`), `invoiceSettings`, `invoiceLink` and `invoiceEvent` (reference
+`invoice`). Invoice links (`/i/{token}`) use the same token lookup as quote
+links, through the `invoiceLink_token_lookup` policy.
 
 Public quote pages (`/q/{token}`) have no session. `lib/tenant/public.ts`
 runs the one query without an organization: it sets the token's SHA-256 for
