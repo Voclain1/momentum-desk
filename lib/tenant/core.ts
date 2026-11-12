@@ -1,6 +1,6 @@
 import type { DbClient } from "@/lib/db/client";
 import type {
-  Activity, AuditLog, Contact, Customer, DocumentSequence, Lead, PipelineStage, Prisma, Product, ProductPrice, Quote,
+  Activity, AuditLog, Contact, Customer, DocumentSequence, Invoice, InvoiceItem, Lead, Payment, PaymentAllocation, PipelineStage, Prisma, Product, ProductPrice, Quote,
   QuoteAcceptanceCode, QuoteEvent, QuoteItem, QuoteLink,
   Task, TaxRate,
 } from "@/lib/generated/prisma/client";
@@ -25,6 +25,10 @@ interface TenantModelTypes {
   quoteLink: { create: Prisma.QuoteLinkUncheckedCreateInput; row: QuoteLink };
   quoteEvent: { create: Prisma.QuoteEventUncheckedCreateInput; row: QuoteEvent };
   quoteAcceptanceCode: { create: Prisma.QuoteAcceptanceCodeUncheckedCreateInput; row: QuoteAcceptanceCode };
+  invoice: { create: Prisma.InvoiceUncheckedCreateInput; row: Invoice };
+  invoiceItem: { create: Prisma.InvoiceItemUncheckedCreateInput; row: InvoiceItem };
+  payment: { create: Prisma.PaymentUncheckedCreateInput; row: Payment };
+  paymentAllocation: { create: Prisma.PaymentAllocationUncheckedCreateInput; row: PaymentAllocation };
 }
 
 /** Create input without the organization, which tenantDb always sets. */

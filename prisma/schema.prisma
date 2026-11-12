@@ -42,6 +42,10 @@ model User {
   productsCreated  Product[]    @relation("ProductCreatedBy")
   quotesCreated    Quote[]      @relation("QuoteCreatedBy")
   quoteLinks       QuoteLink[]  @relation("QuoteLinkCreatedBy")
+  invoicesCreated  Invoice[]    @relation("InvoiceCreatedBy")
+  invoicesVoided   Invoice[]    @relation("InvoiceVoidedBy")
+  paymentsRecorded Payment[]    @relation("PaymentRecordedBy")
+  paymentsVoided   Payment[]    @relation("PaymentVoidedBy")
 
   @@map("user")
 }
@@ -147,6 +151,10 @@ model Organization {
   quoteLinks  QuoteLink[]
   quoteEvents QuoteEvent[]
   quoteCodes  QuoteAcceptanceCode[]
+  invoices    Invoice[]
+  invoiceItems InvoiceItem[]
+  payments    Payment[]
+  allocations PaymentAllocation[]
 
   @@map("organization")
 }
@@ -277,6 +285,8 @@ model Customer {
   tasks        Task[]
   leads        Lead[]
   quotes       Quote[]
+  invoices     Invoice[]
+  payments     Payment[]
 
   /// Lets child tables reference (id, organizationId), so a child row can
   /// never point at another organization's customer.
@@ -383,6 +393,7 @@ model Lead {
   activities   Activity[]
   tasks        Task[]
   quotes       Quote[]
+  invoices     Invoice[]
 
   /// Lets activities and tasks reference (id, organizationId).
   @@unique([id, organizationId])
@@ -503,6 +514,7 @@ model Product {
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   quoteItems   QuoteItem[]
+  invoiceItems InvoiceItem[]
   /// Composite key: the default tax rate must be the same workspace's.
   taxRate      TaxRate?       @relation(fields: [taxRateId, organizationId], references: [id, organizationId], onDelete: NoAction)
   createdBy    User?          @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -614,6 +626,7 @@ model Quote {
   links        QuoteLink[]
   events       QuoteEvent[]
   codes        QuoteAcceptanceCode[]
+  invoice      Invoice?
 
   @@unique([id, organizationId])
   @@unique([organizationId, number, revision])
@@ -730,4 +743,156 @@ model QuoteAcceptanceCode {
 
   @@index([organizationId, quoteId, createdAt])
   @@map("quoteAcceptanceCode")
+}
+
+/// An invoice (spec §7.6). Drafts change freely and have no number; issuing
+/// assigns the next number (decision D30) and fixes the content for good
+/// (D31, invoice_guard trigger). Paid, partly paid and overdue are derived
+/// from paidMinor and dueOn, never stored (D32).
+model Invoice {
+  id               String    @id @default(uuid(7))
+  organizationId   String
+  /// Display number, e.g. "INV-0042". Null until issued; never reused.
+  number           String?
+  /// "draft", "issued" or "void".
+  status           String    @default("draft")
+  customerId       String
+  leadId           String?
+  /// The accepted quote this invoice came from; at most one invoice per quote (D33).
+  quoteId          String?
+  /// ISO 4217; every line and payment is in this currency.
+  currency         String
+  taxMode          String
+  /// Calendar dates in the workspace's timezone.
+  issuedOn         DateTime  @db.Date
+  dueOn            DateTime  @db.Date
+  recipientName    String?
+  recipientEmail   String?
+  /// Billing details as they were at issue (refreshed on every draft save).
+  customerSnapshot Json
+  notes            String?
+  terms            String?
+  /// Payment instructions copied at issue, e.g. bank details.
+  paymentInstructions String?
+  subtotalMinor    BigInt    @default(0)
+  discountMinor    BigInt    @default(0)
+  taxMinor         BigInt    @default(0)
+  totalMinor       BigInt    @default(0)
+  taxLines         Json      @default("[]")
+  /// Sum of valid payment allocations, kept by the database (payment_allocation_sum trigger).
+  paidMinor        BigInt    @default(0)
+  /// totalMinor − paidMinor, always set by the database (invoice_outstanding trigger); for filtering.
+  outstandingMinor BigInt    @default(0)
+  issuedAt         DateTime? @db.Timestamptz(3)
+  viewedAt         DateTime? @db.Timestamptz(3)
+  voidedAt         DateTime? @db.Timestamptz(3)
+  voidReason       String?
+  voidedById       String?
+  /// The customer disputes the invoice; shown, and paused for collections (M5).
+  disputedAt       DateTime? @db.Timestamptz(3)
+  disputeReason    String?
+  createdById      String?
+  version          Int       @default(1)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer            @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  lead         Lead?               @relation(fields: [leadId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  quote        Quote?              @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  createdBy    User?               @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  voidedBy     User?               @relation("InvoiceVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  items        InvoiceItem[]
+  allocations  PaymentAllocation[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, number])
+  /// One invoice per quote (D33).
+  @@unique([quoteId, organizationId])
+  @@index([organizationId, status, dueOn])
+  @@index([organizationId, customerId])
+  @@map("invoice")
+}
+
+/// An invoice line, copied like a quote line (spec §7.4).
+model InvoiceItem {
+  id               String  @id @default(uuid(7))
+  organizationId   String
+  invoiceId        String
+  position         Int
+  productId        String?
+  description      String
+  quantityMilli    BigInt
+  unit             String?
+  unitPriceMinor   BigInt
+  discountKind     String  @default("none")
+  discountValue    BigInt  @default(0)
+  taxRateId        String?
+  taxName          String?
+  taxMilliPercent  Int?
+  grossMinor       BigInt
+  discountMinor    BigInt
+  netMinor         BigInt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  @@unique([invoiceId, position])
+  @@index([organizationId, invoiceId])
+  @@map("invoiceItem")
+}
+
+/// Money received from a customer (spec §6). Manual in M3; providers add
+/// their own in M4. Never deleted: a mistake is voided with a reason.
+model Payment {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  customerId     String
+  currency       String
+  amountMinor    BigInt
+  /// "bank_transfer", "cash", "card", "mobile_money", "cheque" or "other".
+  method         String
+  /// "manual" now; a provider key later.
+  source         String    @default("manual")
+  /// Calendar date the money arrived, in the workspace's timezone.
+  receivedOn     DateTime  @db.Date
+  /// e.g. the bank transfer reference.
+  reference      String?
+  note           String?
+  recordedById   String?
+  voidedAt       DateTime? @db.Timestamptz(3)
+  voidReason     String?
+  voidedById     String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer            @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  recordedBy   User?               @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  voidedBy     User?               @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  allocations  PaymentAllocation[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, customerId, receivedOn])
+  @@map("payment")
+}
+
+/// How much of a payment settles an invoice. Valid while neither it nor its
+/// payment is voided; the invoice's paidMinor is their sum.
+model PaymentAllocation {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  paymentId      String
+  invoiceId      String
+  amountMinor    BigInt
+  voidedAt       DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment      Payment      @relation(fields: [paymentId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, paymentId])
+  @@map("paymentAllocation")
 }

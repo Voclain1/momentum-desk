@@ -67,7 +67,9 @@ export type AuditAction =
   | "invoice.issued"
   | "invoice.voided"
   | "invoice.disputed"
-  | "invoice.dispute_resolved";
+  | "invoice.dispute_resolved"
+  | "payment.recorded"
+  | "payment.voided";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -75,7 +77,7 @@ export interface AuditEntry {
   action: AuditAction;
   /** The signed-in user who acted. Null for system actions. */
   actorUserId: string | null;
-  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task" | "tax_rate" | "product" | "quote" | "invoice";
+  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task" | "tax_rate" | "product" | "quote" | "invoice" | "payment";
   targetId?: string;
   /** Details of the change. Never passwords, tokens or full documents. */
   metadata?: { [key: string]: JsonValue };
