@@ -53,6 +53,14 @@ export const LABELS: Record<AuditAction, string> = {
   "quote.emailed": "emailed a quote",
   "quote.accepted": "accepted a quote",
   "quote.rejected": "declined a quote",
+  "invoice.numbering_updated": "changed invoice numbering",
+  "invoice.created": "created a draft invoice",
+  "invoice.updated": "edited a draft invoice",
+  "invoice.deleted": "deleted a draft invoice",
+  "invoice.issued": "issued an invoice",
+  "invoice.voided": "voided an invoice",
+  "invoice.disputed": "marked an invoice disputed",
+  "invoice.dispute_resolved": "resolved an invoice dispute",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

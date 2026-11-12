@@ -59,7 +59,15 @@ export type AuditAction =
   | "quote.links_revoked"
   | "quote.emailed"
   | "quote.accepted"
-  | "quote.rejected";
+  | "quote.rejected"
+  | "invoice.numbering_updated"
+  | "invoice.created"
+  | "invoice.updated"
+  | "invoice.deleted"
+  | "invoice.issued"
+  | "invoice.voided"
+  | "invoice.disputed"
+  | "invoice.dispute_resolved";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -67,7 +75,7 @@ export interface AuditEntry {
   action: AuditAction;
   /** The signed-in user who acted. Null for system actions. */
   actorUserId: string | null;
-  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task" | "tax_rate" | "product" | "quote";
+  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task" | "tax_rate" | "product" | "quote" | "invoice";
   targetId?: string;
   /** Details of the change. Never passwords, tokens or full documents. */
   metadata?: { [key: string]: JsonValue };
