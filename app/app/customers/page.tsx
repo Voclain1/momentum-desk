@@ -42,13 +42,22 @@ export default async function CustomersPage({ searchParams }: PageProps<"/app/cu
           <p>CUSTOMERS</p>
           <h1>{query.archived ? "Archived customers" : "Customers"}</h1>
         </div>
-        {tenant.can("customers:write") ? (
-          <div className="header-actions">
+        <div className="header-actions">
+          {tenant.can("data:export") ? (
+            <>
+              {/* A file download, not a page: a plain link. */}
+              <a href="/app/customers/export" className="icon-button text-button link-as-button" download>Export</a>
+              {tenant.can("customers:write") ? (
+                <Link href="/app/import?type=customers" className="icon-button text-button link-as-button">Import</Link>
+              ) : null}
+            </>
+          ) : null}
+          {tenant.can("customers:write") ? (
             <Link href="/app/customers/new" className="new-button link-as-button">
               <span aria-hidden>＋</span> New customer
             </Link>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </header>
 
       <form className="list-filters" role="search" action="/app/customers">

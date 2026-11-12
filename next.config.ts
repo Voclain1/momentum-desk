@@ -6,7 +6,11 @@ import { parseEnv } from "./lib/env";
 parseEnv(process.env);
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // CSV imports accept files up to 1 MB (lib/transfer); leave room for
+    // the multipart overhead around the file.
+    serverActions: { bodySizeLimit: "2mb" },
+  },
 };
 
 // Error monitoring (decision D8). Source maps are uploaded only when

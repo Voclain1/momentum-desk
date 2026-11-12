@@ -1,7 +1,7 @@
 import type { AuditAction } from "@/lib/audit";
 import type { Tenant } from "@/lib/tenant/server";
 
-const LABELS: Record<AuditAction, string> = {
+export const LABELS: Record<AuditAction, string> = {
   "organization.created": "created the workspace",
   "organization.updated": "updated workspace settings",
   "member.added": "added a member",
@@ -18,6 +18,21 @@ const LABELS: Record<AuditAction, string> = {
   "contact.added": "added a contact",
   "contact.updated": "updated a contact",
   "contact.removed": "removed a contact",
+  "lead.created": "added a lead",
+  "lead.updated": "updated a lead",
+  "lead.stage_changed": "moved a lead",
+  "lead.archived": "archived a lead",
+  "lead.restored": "restored a lead",
+  "lead.converted": "converted a lead to a customer",
+  "customer.imported": "imported customers",
+  "lead.imported": "imported leads",
+  "activity.updated": "edited a note",
+  "activity.removed": "removed a note",
+  "task.created": "added a task",
+  "task.updated": "updated a task",
+  "task.completed": "completed a task",
+  "task.reopened": "reopened a task",
+  "task.removed": "removed a task",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

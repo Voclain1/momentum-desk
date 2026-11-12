@@ -85,7 +85,15 @@ export async function listCustomers(data: TenantData, organizationId: string, qu
 export async function getCustomer(data: TenantData, organizationId: string, id: string) {
   const customer = await data.scoped(organizationId).customer.findUnique({
     where: { id },
-    include: { contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }] }, createdBy: { select: { name: true } } },
+    include: {
+      contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }] },
+      createdBy: { select: { name: true } },
+      // Leads converted into or linked to this customer (spec §7.2).
+      leads: {
+        orderBy: { convertedAt: "desc" },
+        select: { id: true, contactName: true, companyName: true, convertedAt: true, stage: { select: { name: true } } },
+      },
+    },
   });
   if (!customer) throw new RecordNotFoundError("Customer");
   return customer;
