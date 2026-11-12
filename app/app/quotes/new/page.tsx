@@ -73,7 +73,7 @@ export default async function NewQuotePage({ searchParams }: PageProps<"/app/quo
               currency: customer?.preferredCurrency ?? organization.defaultInvoiceCurrency ?? organization.baseCurrency,
               taxMode: "exclusive",
               issuedOn: today,
-              expiresOn: addDays(today, 30),
+              endsOn: addDays(today, 30),
               notes: "",
               terms: "",
               lines: [newLine()],

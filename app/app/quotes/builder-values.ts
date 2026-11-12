@@ -19,7 +19,8 @@ export interface QuoteValues {
   currency: string;
   taxMode: "exclusive" | "inclusive";
   issuedOn: string;
-  expiresOn: string;
+  /** Valid-until date on a quote, due date on an invoice. */
+  endsOn: string;
   notes: string;
   terms: string;
   lines: LineValues[];

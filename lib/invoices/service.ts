@@ -399,3 +399,16 @@ export async function setDisputed(data: TenantData, actor: Actor, id: string, re
   });
 }
 
+
+/**
+ * Accepted quotes not yet invoiced, for the new-invoice page. Finance can
+ * invoice without quote access, so only what conversion needs is returned.
+ */
+export async function quotesReadyToInvoice(data: TenantData, organizationId: string) {
+  return data.scoped(organizationId).quote.findMany({
+    where: { status: "accepted", invoice: null },
+    orderBy: { acceptedAt: "desc" },
+    take: 100,
+    select: { id: true, number: true, revision: true, currency: true, totalMinor: true, acceptedAt: true, customer: { select: { displayName: true } } },
+  });
+}

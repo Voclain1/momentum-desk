@@ -69,7 +69,8 @@ export type AuditAction =
   | "invoice.disputed"
   | "invoice.dispute_resolved"
   | "payment.recorded"
-  | "payment.voided";
+  | "payment.voided"
+  | "invoice.settings_updated";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

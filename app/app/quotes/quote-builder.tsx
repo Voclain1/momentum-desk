@@ -64,6 +64,7 @@ function preview(values: QuoteValues, rates: BuilderOptions["taxRates"]) {
 }
 
 export function QuoteBuilder({
+  kind = "quote",
   action,
   initial,
   version,
@@ -77,7 +78,10 @@ export function QuoteBuilder({
   options: BuilderOptions;
   locale: string;
   submitLabel: string;
+  /** The same builder makes invoices; only the closing date differs. */
+  kind?: "quote" | "invoice";
 }) {
+  const endKey = kind === "quote" ? "expiresOn" : "dueOn";
   const [state, formAction, pending] = useActionState(action, { status: "idle" });
   const [values, setValues] = useState(initial);
   const [notice, setNotice] = useState("");
@@ -143,7 +147,7 @@ export function QuoteBuilder({
     currency: values.currency,
     taxMode: values.taxMode,
     issuedOn: values.issuedOn,
-    expiresOn: values.expiresOn,
+    [endKey]: values.endsOn,
     notes: values.notes,
     terms: values.terms,
     lines: values.lines.map((line) => ({
@@ -161,7 +165,7 @@ export function QuoteBuilder({
   );
 
   return (
-    <form action={formAction} className="settings-form quote-builder" aria-label="Quote">
+    <form action={formAction} className="settings-form quote-builder" aria-label={kind === "quote" ? "Quote" : "Invoice"}>
       <input type="hidden" name="quote" value={payload} />
       {version !== undefined ? <input type="hidden" name="version" value={version} /> : null}
       {state.status === "saved" ? <p role="status" className="settings-message saved">{state.message}</p> : null}
@@ -204,7 +208,9 @@ export function QuoteBuilder({
             </select>
           ))}
           {label("Issue date", errors.issuedOn, <input type="date" value={values.issuedOn} onChange={(e) => set("issuedOn", e.target.value)} required />)}
-          {label("Valid until", errors.expiresOn, <input type="date" value={values.expiresOn} onChange={(e) => set("expiresOn", e.target.value)} required />)}
+          {label(kind === "quote" ? "Valid until" : "Due date", errors[endKey], (
+            <input type="date" value={values.endsOn} onChange={(e) => set("endsOn", e.target.value)} required />
+          ))}
         </div>
         {errors.leadId ? <em role="alert" className="inline-error">{`Lead ${errors.leadId}`}</em> : null}
 

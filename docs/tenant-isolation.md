@@ -90,7 +90,10 @@ composite keys), `activity` and
 `product` (references `taxRate`), `productPrice` (references `product`),
 `documentSequence`, `quote` (references `customer`, `lead` and its previous
 revision), `quoteItem` (references `quote` and `product`), `quoteLink`,
-`quoteEvent` and `quoteAcceptanceCode` (reference `quote`).
+`quoteEvent` and `quoteAcceptanceCode` (reference `quote`), `invoice`
+(references `customer`, `lead` and `quote`), `invoiceItem`, `payment`
+(references `customer`), `paymentAllocation` (references `payment` and
+`invoice`) and `invoiceSettings`.
 
 Public quote pages (`/q/{token}`) have no session. `lib/tenant/public.ts`
 runs the one query without an organization: it sets the token's SHA-256 for

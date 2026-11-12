@@ -8,6 +8,7 @@ import { RecordNotFoundError } from "@/lib/errors";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
 import { displayStatus, getQuote } from "@/lib/quotes/service";
+import { invoiceForQuote } from "@/lib/invoices/service";
 import { quoteActivity } from "@/lib/quotes/sharing";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
@@ -26,6 +27,8 @@ import { newLine } from "../builder-values";
 import { STATUS_LABELS } from "../labels";
 import { builderOptions } from "../page-data";
 import { QuoteActions } from "../quote-actions";
+import { invoiceQuoteAction } from "../../invoices/actions";
+import { StepButton } from "../../invoices/panels";
 import { SharePanel } from "../share-panel";
 import { QuoteBuilder } from "../quote-builder";
 
@@ -55,6 +58,7 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
   const activity = isDraft ? { links: [], events: [] } : await quoteActivity(tenantData, organization.id, quote.id);
   const activeLinks = activity.links.filter((link) => !link.revokedAt).length;
   const shareable = ["sent", "accepted", "rejected"].includes(quote.status);
+  const invoice = quote.status === "accepted" ? await invoiceForQuote(tenantData, organization.id, quote.id) : null;
 
   const header = (
     <header className="topbar">
@@ -112,6 +116,23 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
           {quote.rejectedAt ? <li><div><small>Rejected</small>{date.format(quote.rejectedAt)}</div></li> : null}
         </ul>
       </section>
+      {quote.status === "accepted" && (invoice ? tenant.can("invoices:read") : tenant.can("invoices:write")) ? (
+        <section className="panel contacts-panel" aria-label="Invoice">
+          <div className="panel-heading">
+            <div>
+              <h3>Invoice</h3>
+              <p>{invoice ? "This quote has been invoiced." : "The invoice copies the accepted lines and amounts exactly."}</p>
+            </div>
+          </div>
+          <div className="quote-actions">
+            {invoice ? (
+              <a href={`/app/invoices/${invoice.id}`} className="link-button">{invoice.number ?? "Draft invoice"}</a>
+            ) : (
+              <StepButton primary action={invoiceQuoteAction.bind(null, quote.id)} label="Invoice this quote" />
+            )}
+          </div>
+        </section>
+      ) : null}
       {shareable && canEdit ? (
         <SharePanel
           email={quote.status === "sent" ? emailQuoteAction.bind(null, quote.id, organization.name) : undefined}
@@ -209,7 +230,7 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
                 currency: quote.currency,
                 taxMode: quote.taxMode as "exclusive" | "inclusive",
                 issuedOn: quote.issuedOn.toISOString().slice(0, 10),
-                expiresOn: quote.expiresOn.toISOString().slice(0, 10),
+                endsOn: quote.expiresOn.toISOString().slice(0, 10),
                 notes: quote.notes ?? "",
                 terms: quote.terms ?? "",
                 lines: quote.items.map((item) =>

@@ -2,10 +2,15 @@ import type { Metadata } from "next";
 import { formatPercent } from "@/lib/catalogue/schema";
 import { listTaxRates } from "@/lib/catalogue/service";
 import { settingsOptions } from "@/lib/organizations/options";
+import { invoiceNumbering } from "@/lib/invoices/service";
+import { invoiceSettings } from "@/lib/invoices/settings";
 import { quoteNumbering } from "@/lib/quotes/service";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 import { SettingsForm } from "./settings-form";
+import { updateInvoiceNumberingAction, updateInvoiceSettingsAction } from "../invoices/actions";
+import { updateNumberingAction } from "../quotes/actions";
+import { InvoiceSettingsPanel } from "./invoice-settings";
 import { QuoteNumbering } from "./quote-numbering";
 import { TaxRates } from "./tax-rates";
 
@@ -15,9 +20,11 @@ export default async function SettingsPage() {
   const tenant = await requireTenant("workspace:read");
   const { organization } = tenant;
   const canEdit = tenant.can("settings:write");
-  const [taxRates, numbering] = await Promise.all([
+  const [taxRates, numbering, invoiceNumbers, invoiceDefaults] = await Promise.all([
     listTaxRates(tenantData, organization.id, { includeArchived: canEdit }),
     quoteNumbering(tenantData, organization.id),
+    invoiceNumbering(tenantData, organization.id),
+    invoiceSettings(tenantData, organization.id),
   ]);
   const baseCurrencyName =
     new Intl.DisplayNames(["en"], { type: "currency" }).of(organization.baseCurrency) ?? organization.baseCurrency;
@@ -67,7 +74,13 @@ export default async function SettingsPage() {
             id: rate.id, name: rate.name, rate: formatPercent(rate.milliPercent), archived: Boolean(rate.archivedAt),
           }))}
         />
-        <QuoteNumbering initial={numbering} canEdit={canEdit} />
+        <QuoteNumbering initial={numbering} canEdit={canEdit} action={updateNumberingAction} />
+        <QuoteNumbering initial={invoiceNumbers} canEdit={canEdit} action={updateInvoiceNumberingAction} noun="invoice" />
+        <InvoiceSettingsPanel
+          canEdit={canEdit}
+          action={updateInvoiceSettingsAction}
+          initial={{ paymentInstructions: invoiceDefaults.paymentInstructions ?? "", defaultDueDays: invoiceDefaults.defaultDueDays }}
+        />
       </section>
     </>
   );

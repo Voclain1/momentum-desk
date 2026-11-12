@@ -63,6 +63,7 @@ export const LABELS: Record<AuditAction, string> = {
   "invoice.dispute_resolved": "resolved an invoice dispute",
   "payment.recorded": "recorded a payment",
   "payment.voided": "voided a payment",
+  "invoice.settings_updated": "changed invoice settings",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

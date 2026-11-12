@@ -52,6 +52,14 @@ Done:
 - Quote PDF (`lib/documents/quote-pdf.ts`): drawn from the same copied snapshot as the web view (`lib/documents/present.ts`), A4, with the DejaVu Sans font embedded so every currency sign prints; long descriptions wrap and the table continues across pages. Staff download any revision (`/app/quotes/{id}/pdf`, drafts marked "DRAFT"); customers download from their link (`/q/{token}/pdf`), which stops with the link. Plain layout until the design system
 - Not yet: logo and brand colours on documents (with the design system), quote-to-invoice conversion (start of M3)
 
+## M3 (invoicing): in progress
+
+- Decisions D30–D34 (`docs/decisions.md`): numbers at issue without gaps, issued invoices never change (void with a reason, then reissue), manual payments in the invoice currency without overpayment, accepted quotes convert once and verbatim, base-currency reporting in M5
+- Invoices (`/app/invoices`, `lib/invoices`): direct invoices with the same builder as quotes, or from an accepted quote ("Invoice this quote", or the list on the new-invoice page for finance), copying its lines and amounts exactly. Issuing assigns the next number and copies the payment instructions from Settings. Status is derived: issued, viewed, partly paid, paid, overdue, disputed, void. Disputes need a reason; voiding needs `invoices:void` (owner, admin), a reason and no valid payments. Owner, admin and finance; sales and member cannot see invoices
+- Payments (`lib/payments`): recorded by owner, admin or finance in the invoice's currency, never above what is owed and never dated in the future; voided with a reason, never deleted. The database keeps each invoice's paid and owed amounts from valid allocations and refuses overpayment, currency or customer mismatches, and payments to drafts or void invoices
+- Settings: invoice numbering, payment instructions and default days until due
+- Next: public invoice page and PDF
+
 End-to-end tests read emails from `e2e/.outbox/emails.jsonl` (`EMAIL_TEST_OUTBOX`, set by `playwright.config.ts`); the app refuses that setting unless `APP_URL` is localhost.
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.

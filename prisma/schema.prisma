@@ -155,6 +155,7 @@ model Organization {
   invoiceItems InvoiceItem[]
   payments    Payment[]
   allocations PaymentAllocation[]
+  invoiceSettings InvoiceSettings?
 
   @@map("organization")
 }
@@ -895,4 +896,18 @@ model PaymentAllocation {
   @@index([organizationId, invoiceId])
   @@index([organizationId, paymentId])
   @@map("paymentAllocation")
+}
+
+/// Workspace defaults for invoices: how to pay (copied onto each invoice at
+/// issue) and the default days until due.
+model InvoiceSettings {
+  id                  String   @id @default(uuid(7))
+  organizationId      String   @unique
+  paymentInstructions String?
+  defaultDueDays      Int      @default(14)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("invoiceSettings")
 }
