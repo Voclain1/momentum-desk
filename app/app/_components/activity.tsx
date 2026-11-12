@@ -48,6 +48,11 @@ export const LABELS: Record<AuditAction, string> = {
   "quote.revised": "started a quote revision",
   "quote.duplicated": "duplicated a quote",
   "quote.numbering_updated": "changed quote numbering",
+  "quote.link_created": "created a quote link",
+  "quote.links_revoked": "revoked quote links",
+  "quote.emailed": "emailed a quote",
+  "quote.accepted": "recorded a quote acceptance",
+  "quote.rejected": "recorded a quote rejection",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

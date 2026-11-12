@@ -41,6 +41,7 @@ model User {
   tasksCompleted   Task[]       @relation("TaskCompletedBy")
   productsCreated  Product[]    @relation("ProductCreatedBy")
   quotesCreated    Quote[]      @relation("QuoteCreatedBy")
+  quoteLinks       QuoteLink[]  @relation("QuoteLinkCreatedBy")
 
   @@map("user")
 }
@@ -143,6 +144,9 @@ model Organization {
   sequences   DocumentSequence[]
   quotes      Quote[]
   quoteItems  QuoteItem[]
+  quoteLinks  QuoteLink[]
+  quoteEvents QuoteEvent[]
+  quoteCodes  QuoteAcceptanceCode[]
 
   @@map("organization")
 }
@@ -607,6 +611,9 @@ model Quote {
   revisions    Quote[]      @relation("QuoteRevision")
   createdBy    User?        @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   items        QuoteItem[]
+  links        QuoteLink[]
+  events       QuoteEvent[]
+  codes        QuoteAcceptanceCode[]
 
   @@unique([id, organizationId])
   @@unique([organizationId, number, revision])
@@ -648,4 +655,79 @@ model QuoteItem {
   @@unique([quoteId, position])
   @@index([organizationId, quoteId])
   @@map("quoteItem")
+}
+
+/// A public link to one quote revision (decision D16). Only the SHA-256 hash
+/// of the token is stored, so the link is shown once when created. Valid
+/// until revoked, or until the quote is superseded.
+model QuoteLink {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  quoteId        String
+  /// Hex SHA-256 of the token. Globally unique; looked up without a session.
+  tokenHash      String    @unique
+  createdById    String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt      DateTime? @db.Timestamptz(3)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote                 @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  createdBy    User?                 @relation("QuoteLinkCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  codes        QuoteAcceptanceCode[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, quoteId])
+  @@map("quoteLink")
+}
+
+/// What happened to a quote on its public page: views, codes sent,
+/// acceptance and rejection, with the evidence decision D15 requires.
+/// Append-only.
+model QuoteEvent {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  quoteId        String
+  linkId         String?
+  /// "viewed", "code_sent", "accepted" or "rejected".
+  kind           String
+  /// As given by the customer (acceptance and rejection).
+  name           String?
+  /// Verified by the emailed code (acceptance).
+  email          String?
+  reason         String?
+  ipAddress      String?
+  userAgent      String?
+  /// SHA-256 of the quote's content as accepted: proves which version.
+  contentHash    String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote        @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, quoteId, createdAt])
+  @@map("quoteEvent")
+}
+
+/// A one-time code emailed to confirm acceptance (decision D15).
+model QuoteAcceptanceCode {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  quoteId        String
+  linkId         String
+  /// Where the code was sent; recorded as the verified email on acceptance.
+  email          String
+  name           String
+  /// Hex SHA-256 of the code, salted with this row's id.
+  codeHash       String
+  attempts       Int       @default(0)
+  expiresAt      DateTime  @db.Timestamptz(3)
+  usedAt         DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote        @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  link         QuoteLink    @relation(fields: [linkId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, quoteId, createdAt])
+  @@map("quoteAcceptanceCode")
 }

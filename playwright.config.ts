@@ -8,6 +8,8 @@ for (const file of [".env.local", ".env"]) {
 
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
+/** Read by e2e/outbox.ts. */
+export const EMAIL_OUTBOX = `${process.cwd()}/e2e/.outbox/emails.jsonl`;
 
 /**
  * End-to-end tests run the production build against TEST_DATABASE_URL, the
@@ -48,6 +50,8 @@ export default defineConfig({
     env: {
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
       APP_URL: baseURL,
+      // Emails go to this file so tests can read links and codes (lib/email).
+      EMAIL_TEST_OUTBOX: EMAIL_OUTBOX,
     },
   },
 });

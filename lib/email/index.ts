@@ -5,6 +5,9 @@
  * send, loudly, rather than silently dropping the message.
  */
 
+import { appendFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
+import { isLocalUrl } from "@/lib/env";
 import { createResendEmailSender } from "./resend";
 
 export interface EmailMessage {
@@ -53,14 +56,33 @@ export function createMemoryEmailSender() {
   } satisfies EmailSender & Record<string, unknown>;
 }
 
+/** End-to-end tests: append each message to a file as one JSON line. */
+export function createFileEmailSender(path: string): EmailSender {
+  return {
+    async send({ to, subject, text }) {
+      await mkdir(dirname(path), { recursive: true });
+      await appendFile(path, JSON.stringify({ to, subject, text, at: new Date().toISOString() }) + "\n");
+    },
+  };
+}
+
 export interface EmailConfig {
   NODE_ENV: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
+  APP_URL?: string;
+  EMAIL_TEST_OUTBOX?: string;
 }
 
-/** Resend when configured; otherwise the log in development and a refusal in production. */
+/** Whether the end-to-end outbox is in use: set, and only for a localhost app. */
+const usesTestOutbox = (config: EmailConfig) => Boolean(config.EMAIL_TEST_OUTBOX) && isLocalUrl(config.APP_URL);
+
+/**
+ * The end-to-end outbox for a local test server; otherwise Resend when
+ * configured, the log in development and a refusal in production.
+ */
 export function defaultEmailSender(config: EmailConfig): EmailSender {
+  if (usesTestOutbox(config)) return createFileEmailSender(config.EMAIL_TEST_OUTBOX!);
   if (config.RESEND_API_KEY && config.EMAIL_FROM) {
     return createResendEmailSender({ apiKey: config.RESEND_API_KEY, from: config.EMAIL_FROM });
   }
@@ -69,5 +91,5 @@ export function defaultEmailSender(config: EmailConfig): EmailSender {
 
 /** Whether emails actually leave the server (Resend configured). */
 export function emailIsDelivered(config: EmailConfig): boolean {
-  return Boolean(config.RESEND_API_KEY && config.EMAIL_FROM);
+  return Boolean(config.RESEND_API_KEY && config.EMAIL_FROM) || usesTestOutbox(config);
 }

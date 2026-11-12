@@ -54,7 +54,12 @@ export type AuditAction =
   | "quote.sent"
   | "quote.revised"
   | "quote.duplicated"
-  | "quote.numbering_updated";
+  | "quote.numbering_updated"
+  | "quote.link_created"
+  | "quote.links_revoked"
+  | "quote.emailed"
+  | "quote.accepted"
+  | "quote.rejected";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
