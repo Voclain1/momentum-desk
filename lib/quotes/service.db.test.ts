@@ -101,7 +101,7 @@ describe("quote drafts", () => {
   });
 
   it("explains every problem by line and field", async () => {
-    const { actor, customer, vat } = await workspace();
+    const { actor, customer } = await workspace();
     expect(
       await fields(createQuote(data, actor, input(customer.id, [
         { description: "", quantity: "0", unitPrice: "10.5" },

@@ -51,9 +51,12 @@ export default async function CustomerPage({ params }: PageProps<"/app/customers
           </p>
           <h1>{customer.displayName}</h1>
         </div>
-        {canEdit ? (
+        {canEdit || tenant.can("quotes:write") ? (
           <div className="header-actions">
-            <ArchiveButton action={setArchivedAction.bind(null, customer.id, !customer.archivedAt)} archived={Boolean(customer.archivedAt)} />
+            {tenant.can("quotes:write") && !customer.archivedAt ? (
+              <Link href={`/app/quotes/new?customer=${customer.id}`} className="new-button link-as-button">＋ New quote</Link>
+            ) : null}
+            {canEdit ? <ArchiveButton action={setArchivedAction.bind(null, customer.id, !customer.archivedAt)} archived={Boolean(customer.archivedAt)} /> : null}
           </div>
         ) : null}
       </header>

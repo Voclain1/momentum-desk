@@ -51,3 +51,4 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 - 2026-11-06 — Activity, notes and tasks added (M1). D27 recorded.
 - 2026-11-12 — Lead conversion, duplicate detection and CSV import/export added (M1). D28 and D29 recorded.
 - 2026-11-12 — M2 started. D13–D16 decided by the owner from recommendations (D15 strengthened with an emailed code); D12 set.
+- 2026-11-12 — Catalogue, tax rates and the quote builder added (M2). Quote statuses stored: draft, sent, accepted, rejected, superseded; "viewed" and "expired" are shown from dates. Quote-to-invoice conversion moves to the start of M3, where the invoice model is built.

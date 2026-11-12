@@ -47,7 +47,8 @@ Done:
 - Decisions D12–D16 (`docs/decisions.md`): exact bigint arithmetic with fixed rounding points, per-currency catalogue prices, configurable tax rates, quote acceptance confirmed by an emailed code, hashed share links valid until revoked or superseded
 - Document arithmetic (`lib/documents/calc.ts`): line and document totals, tax-exclusive and tax-inclusive, with tests in 0-, 2- and 3-decimal currencies
 - Tax rates (Settings) and the catalogue (`/app/catalogue`, `lib/catalogue`): products and services with optional SKU, unit, category, default tax and one price per currency (never converted). Owners and admins edit; sales and finance can read
-- Next: the quote builder, public quote page with acceptance, PDF
+- Quotes (`/app/quotes`, `lib/quotes`): a builder with lines from the catalogue (priced in the quote's currency) or typed, per-line discounts and tax, live totals using the same arithmetic as the server, tax-exclusive or tax-inclusive, notes and terms. Numbering is configurable in Settings (prefix, next number, digits) and never repeats. Drafts are edited freely; "Mark as sent" fixes the content and the customer's details. "Revise" starts the next revision as a draft; sending it supersedes the previous one, and every revision is kept. Accepted quotes can never be revised. A database trigger refuses any change to a sent quote's content whatever code runs. Quotes can start from a customer or a converted lead. Owner, admin and sales; finance and member cannot see them
+- Next: the public quote page (share link, view tracking, acceptance with an emailed code, rejection) and PDF
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
 

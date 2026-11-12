@@ -1,0 +1,197 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { QuoteDocument } from "@/app/_documents/quote-document";
+import { todayIn } from "@/lib/dates";
+import { formatScaled } from "@/lib/documents/calc";
+import { RecordNotFoundError } from "@/lib/errors";
+import { leadName } from "@/lib/leads/labels";
+import { formatMoney, money, toDecimalString } from "@/lib/money";
+import { displayStatus, getQuote } from "@/lib/quotes/service";
+import { tenantData } from "@/lib/tenant";
+import { requireTenant } from "@/lib/tenant/server";
+import { NoAccess } from "../../_components/no-access";
+import { deleteDraftAction, duplicateQuoteAction, reviseQuoteAction, sendQuoteAction, updateDraftAction } from "../actions";
+import { STATUS_LABELS } from "../labels";
+import { builderOptions } from "../page-data";
+import { QuoteActions } from "../quote-actions";
+import { newLine } from "../builder-values";
+import { QuoteBuilder } from "../quote-builder";
+
+export const metadata: Metadata = { title: "Quote — MomentumDesk" };
+
+export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]">) {
+  const tenant = await requireTenant("workspace:read");
+  if (!tenant.can("quotes:read")) return <NoAccess title="Quote" />;
+  const { id } = await params;
+  const { organization } = tenant;
+  let quote;
+  try {
+    quote = await getQuote(tenantData, organization.id, id);
+  } catch (error) {
+    if (error instanceof RecordNotFoundError) notFound();
+    throw error;
+  }
+  const canEdit = tenant.can("quotes:write");
+  const today = todayIn(organization.timezone);
+  const shown = displayStatus(quote, today);
+  const isDraft = quote.status === "draft";
+  const latest = quote.revisions[0];
+  const isLatest = latest.id === quote.id;
+  const date = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: organization.timezone });
+  const day = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: "UTC" });
+
+  const header = (
+    <header className="topbar">
+      <div>
+        <p>
+          <Link href="/app/quotes" className="crumb">QUOTES</Link> · <span className={`status-pill ${shown}`}>{STATUS_LABELS[shown]}</span>
+        </p>
+        <h1>
+          {quote.number}
+          {quote.revision > 1 ? ` · revision ${quote.revision}` : ""} — {quote.customer.displayName}
+        </h1>
+      </div>
+    </header>
+  );
+
+  const side = (
+    <aside className="record-side">
+      <section className="panel contacts-panel" aria-label="Status">
+        <div className="panel-heading">
+          <div>
+            <h3>Status</h3>
+            <p>
+              {isDraft
+                ? "A draft: edit freely. Marking it sent fixes its content."
+                : shown === "accepted"
+                  ? "Accepted. This version is final and cannot be revised."
+                  : shown === "superseded"
+                    ? "Replaced by a newer revision."
+                    : shown === "expired"
+                      ? "Past its validity date. Revise to make a new offer."
+                      : "Sent. Revise to change it; the customer keeps this version until the revision is sent."}
+            </p>
+          </div>
+        </div>
+        {canEdit ? (
+          <QuoteActions
+            send={isDraft ? sendQuoteAction.bind(null, quote.id, quote.version) : undefined}
+            revise={!isDraft && isLatest && quote.status !== "accepted" && quote.status !== "superseded" ? reviseQuoteAction.bind(null, quote.id) : undefined}
+            duplicate={duplicateQuoteAction.bind(null, quote.id)}
+            remove={isDraft ? deleteDraftAction.bind(null, quote.id) : undefined}
+          />
+        ) : null}
+        <ul className="contact-list">
+          <li><div><small>Customer</small><Link href={`/app/customers/${quote.customer.id}`}>{quote.customer.displayName}</Link></div></li>
+          {quote.lead && tenant.can("sales:read") ? (
+            <li><div><small>Lead</small><Link href={`/app/leads/${quote.lead.id}`}>{leadName(quote.lead)}</Link></div></li>
+          ) : null}
+          <li><div><small>Created</small>{date.format(quote.createdAt)}{quote.createdBy ? ` by ${quote.createdBy.name}` : ""}</div></li>
+          {quote.sentAt ? <li><div><small>Sent</small>{date.format(quote.sentAt)}</div></li> : null}
+          {quote.viewedAt ? <li><div><small>First viewed</small>{date.format(quote.viewedAt)}</div></li> : null}
+          {quote.acceptedAt ? <li><div><small>Accepted</small>{date.format(quote.acceptedAt)}</div></li> : null}
+          {quote.rejectedAt ? <li><div><small>Rejected</small>{date.format(quote.rejectedAt)}</div></li> : null}
+        </ul>
+      </section>
+      {quote.revisions.length > 1 ? (
+        <section className="panel contacts-panel" aria-label="Revisions">
+          <div className="panel-heading"><div><h3>Revisions</h3><p>Every version is kept.</p></div></div>
+          <ul className="contact-list">
+            {quote.revisions.map((revision) => {
+              const state = displayStatus({ ...revision, status: revision.status }, today);
+              return (
+                <li key={revision.id}>
+                  <div>
+                    <strong>
+                      {revision.id === quote.id ? `Revision ${revision.revision}` : <Link href={`/app/quotes/${revision.id}`}>Revision {revision.revision}</Link>}
+                      <span className={`status-pill ${state}`}>{STATUS_LABELS[state]}</span>
+                    </strong>
+                    <small>
+                      {formatMoney(money(revision.totalMinor, quote.currency), organization.locale)}
+                      {revision.sentAt ? ` · sent ${date.format(revision.sentAt)}` : ` · started ${date.format(revision.createdAt)}`}
+                    </small>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+    </aside>
+  );
+
+  if (isDraft && canEdit) {
+    const options = await builderOptions(organization.id, {
+      taxRates: quote.items.flatMap((item) =>
+        item.taxRateId && item.taxName !== null && item.taxMilliPercent !== null
+          ? [{ id: item.taxRateId, name: item.taxName, milliPercent: item.taxMilliPercent }]
+          : [],
+      ),
+    });
+    // Keep the current customer on the list even if archived since.
+    if (!options.customers.some((c) => c.id === quote.customer.id)) {
+      options.customers.push({
+        id: quote.customer.id, name: quote.customer.displayName, email: quote.customer.email,
+        preferredCurrency: quote.customer.preferredCurrency, contacts: [],
+      });
+    }
+    const contact = quote.customer.contacts.find((c) => c.name === quote.recipientName && c.email === quote.recipientEmail);
+    return (
+      <>
+        {header}
+        <section className="quote-page">
+          <div className="panel settings-panel wide">
+            <QuoteBuilder
+              action={updateDraftAction.bind(null, quote.id)}
+              version={quote.version}
+              options={options}
+              locale={organization.locale}
+              submitLabel="Save draft"
+              initial={{
+                customerId: quote.customerId,
+                recipientContactId: contact?.id ?? "",
+                leadId: quote.leadId ?? "",
+                currency: quote.currency,
+                taxMode: quote.taxMode as "exclusive" | "inclusive",
+                issuedOn: quote.issuedOn.toISOString().slice(0, 10),
+                expiresOn: quote.expiresOn.toISOString().slice(0, 10),
+                notes: quote.notes ?? "",
+                terms: quote.terms ?? "",
+                lines: quote.items.map((item) =>
+                  newLine({
+                    productId: item.productId ?? "",
+                    description: item.description,
+                    quantity: formatScaled(item.quantityMilli, 3),
+                    unit: item.unit ?? "",
+                    unitPrice: toDecimalString(money(item.unitPriceMinor, quote.currency)),
+                    discountKind: item.discountKind as "none" | "percent" | "fixed",
+                    discount:
+                      item.discountKind === "percent"
+                        ? formatScaled(item.discountValue, 3)
+                        : item.discountKind === "fixed"
+                          ? toDecimalString(money(item.discountValue, quote.currency))
+                          : "",
+                    taxRateId: item.taxRateId ?? "",
+                  }),
+                ),
+              }}
+            />
+          </div>
+          {side}
+        </section>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {header}
+      <p className="record-meta">Valid until {day.format(quote.expiresOn)}</p>
+      <section className="quote-page">
+        <QuoteDocument quote={quote} seller={organization.name} locale={organization.locale} />
+        {side}
+      </section>
+    </>
+  );
+}

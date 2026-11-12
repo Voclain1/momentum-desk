@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { formatPercent } from "@/lib/catalogue/schema";
 import { listTaxRates } from "@/lib/catalogue/service";
 import { settingsOptions } from "@/lib/organizations/options";
+import { quoteNumbering } from "@/lib/quotes/service";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 import { SettingsForm } from "./settings-form";
+import { QuoteNumbering } from "./quote-numbering";
 import { TaxRates } from "./tax-rates";
 
 export const metadata: Metadata = { title: "Workspace settings — MomentumDesk" };
@@ -13,7 +15,10 @@ export default async function SettingsPage() {
   const tenant = await requireTenant("workspace:read");
   const { organization } = tenant;
   const canEdit = tenant.can("settings:write");
-  const taxRates = await listTaxRates(tenantData, organization.id, { includeArchived: canEdit });
+  const [taxRates, numbering] = await Promise.all([
+    listTaxRates(tenantData, organization.id, { includeArchived: canEdit }),
+    quoteNumbering(tenantData, organization.id),
+  ]);
   const baseCurrencyName =
     new Intl.DisplayNames(["en"], { type: "currency" }).of(organization.baseCurrency) ?? organization.baseCurrency;
 
@@ -62,6 +67,7 @@ export default async function SettingsPage() {
             id: rate.id, name: rate.name, rate: formatPercent(rate.milliPercent), archived: Boolean(rate.archivedAt),
           }))}
         />
+        <QuoteNumbering initial={numbering} canEdit={canEdit} />
       </section>
     </>
   );
