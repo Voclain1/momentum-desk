@@ -51,8 +51,8 @@ export const LABELS: Record<AuditAction, string> = {
   "quote.link_created": "created a quote link",
   "quote.links_revoked": "revoked quote links",
   "quote.emailed": "emailed a quote",
-  "quote.accepted": "recorded a quote acceptance",
-  "quote.rejected": "recorded a quote rejection",
+  "quote.accepted": "accepted a quote",
+  "quote.rejected": "declined a quote",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */
@@ -81,7 +81,7 @@ export async function RecentActivity({ tenant }: { tenant: Tenant }) {
         {entries.map((entry) => (
           <li key={entry.id}>
             <span>
-              <strong>{entry.actor?.name ?? "System"}</strong>{" "}
+              <strong>{entry.actor?.name ?? (entry.action === "quote.accepted" || entry.action === "quote.rejected" ? "A customer" : "System")}</strong>{" "}
               {LABELS[entry.action as AuditAction] ?? entry.action}
             </span>
             <time dateTime={entry.createdAt.toISOString()}>{time.format(entry.createdAt)}</time>

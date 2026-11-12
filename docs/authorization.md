@@ -77,5 +77,6 @@ writes the audit entry in the same transaction.
 
 Business permissions (customers, quotes, invoices, payments) are enforced as
 each module is built, each with server checks and cross-tenant tests. Public
-document links (`/q/{token}`, `/i/{token}`) will use a separate, narrowly
-scoped token check rather than these roles.
+quote links (`/q/{token}`) use a separate, narrowly scoped token check
+rather than these roles (`docs/tenant-isolation.md`); invoice links
+(`/i/{token}`) will do the same.

@@ -8,14 +8,25 @@ import { RecordNotFoundError } from "@/lib/errors";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
 import { displayStatus, getQuote } from "@/lib/quotes/service";
+import { quoteActivity } from "@/lib/quotes/sharing";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 import { NoAccess } from "../../_components/no-access";
-import { deleteDraftAction, duplicateQuoteAction, reviseQuoteAction, sendQuoteAction, updateDraftAction } from "../actions";
+import {
+  createLinkAction,
+  deleteDraftAction,
+  duplicateQuoteAction,
+  emailQuoteAction,
+  revokeLinksAction,
+  reviseQuoteAction,
+  sendQuoteAction,
+  updateDraftAction,
+} from "../actions";
+import { newLine } from "../builder-values";
 import { STATUS_LABELS } from "../labels";
 import { builderOptions } from "../page-data";
 import { QuoteActions } from "../quote-actions";
-import { newLine } from "../builder-values";
+import { SharePanel } from "../share-panel";
 import { QuoteBuilder } from "../quote-builder";
 
 export const metadata: Metadata = { title: "Quote — MomentumDesk" };
@@ -40,6 +51,10 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
   const isLatest = latest.id === quote.id;
   const date = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: organization.timezone });
   const day = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: "UTC" });
+  const time = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeStyle: "short", timeZone: organization.timezone });
+  const activity = isDraft ? { links: [], events: [] } : await quoteActivity(tenantData, organization.id, quote.id);
+  const activeLinks = activity.links.filter((link) => !link.revokedAt).length;
+  const shareable = ["sent", "accepted", "rejected"].includes(quote.status);
 
   const header = (
     <header className="topbar">
@@ -70,7 +85,7 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
                     ? "Replaced by a newer revision."
                     : shown === "expired"
                       ? "Past its validity date. Revise to make a new offer."
-                      : "Sent. Revise to change it; the customer keeps this version until the revision is sent."}
+                      : "Sent. Share it below. Revise to change it; the customer keeps this version until the revision is sent."}
             </p>
           </div>
         </div>
@@ -94,6 +109,42 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
           {quote.rejectedAt ? <li><div><small>Rejected</small>{date.format(quote.rejectedAt)}</div></li> : null}
         </ul>
       </section>
+      {shareable && canEdit ? (
+        <SharePanel
+          email={quote.status === "sent" ? emailQuoteAction.bind(null, quote.id, organization.name) : undefined}
+          createLink={createLinkAction.bind(null, quote.id)}
+          revoke={revokeLinksAction.bind(null, quote.id)}
+          recipientEmail={quote.recipientEmail}
+          activeLinks={activeLinks}
+        />
+      ) : null}
+      {activity.events.length ? (
+        <section className="panel contacts-panel" aria-label="Customer activity">
+          <div className="panel-heading"><div><h3>Customer activity</h3><p>From the quote&apos;s link. Kept as evidence; never edited.</p></div></div>
+          <ul className="contact-list">
+            {activity.events.map((event) => (
+              <li key={event.id}>
+                <div>
+                  <strong>
+                    {{ viewed: "Viewed", code_sent: "Acceptance code sent", accepted: "Accepted", rejected: "Declined" }[event.kind] ?? event.kind}
+                  </strong>
+                  <small>{time.format(event.createdAt)}</small>
+                  {event.kind === "accepted" ? (
+                    <small>
+                      By {event.name}, confirmed by a code sent to {event.email}. Version fingerprint {event.contentHash?.slice(0, 12)}.
+                    </small>
+                  ) : null}
+                  {event.kind === "code_sent" ? <small>To {event.email}{event.name ? ` for ${event.name}` : ""}</small> : null}
+                  {event.kind === "rejected" ? (
+                    <small>{event.name ? `By ${event.name}. ` : ""}{event.reason ? `Reason: ${event.reason}` : "No reason given."}</small>
+                  ) : null}
+                  {event.ipAddress ? <small>From {event.ipAddress}</small> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {quote.revisions.length > 1 ? (
         <section className="panel contacts-panel" aria-label="Revisions">
           <div className="panel-heading"><div><h3>Revisions</h3><p>Every version is kept.</p></div></div>

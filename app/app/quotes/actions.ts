@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AuthorizationError, type Permission } from "@/lib/auth/authorization";
 import { todayIn } from "@/lib/dates";
+import { EmailNotConfiguredError } from "@/lib/email";
+import { emailSender, publicOrigin } from "@/lib/email/server";
 import { InputValidationError, RecordConflictError, RecordNotFoundError } from "@/lib/errors";
 import {
   createQuote,
@@ -14,6 +17,7 @@ import {
   updateDraft,
   updateQuoteNumbering,
 } from "@/lib/quotes/service";
+import { createShareLink, emailQuote, quotePath, revokeShareLinks } from "@/lib/quotes/sharing";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 
@@ -139,4 +143,47 @@ export async function updateNumberingAction(_: FormState, form: FormData): Promi
     revalidatePath("/app/settings");
     return { status: "saved", message: "Quote numbering saved." };
   }, "settings:write");
+}
+
+export type ShareState = FormState | { status: "link"; message: string; url: string };
+
+async function origin() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost";
+  return publicOrigin(`${h.get("x-forwarded-proto") ?? "http"}://${host}`);
+}
+
+/** A new share link, returned once: only its hash is stored (decision D16). */
+export async function createLinkAction(id: string): Promise<ShareState> {
+  let url = "";
+  const state = await write(async ({ actor }) => {
+    const { token } = await createShareLink(tenantData, actor, id);
+    url = new URL(quotePath(token), await origin()).toString();
+    refresh(id);
+    return { status: "saved", message: "Link created." };
+  });
+  return state.status === "saved" ? { status: "link", message: "Copy this link now: it is shown only once.", url } : state;
+}
+
+export async function emailQuoteAction(id: string, seller: string): Promise<ShareState> {
+  return write(async ({ actor }) => {
+    try {
+      const { sentTo } = await emailQuote(tenantData, actor, id, { appUrl: await origin(), seller, email: emailSender });
+      refresh(id);
+      return { status: "saved", message: `Quote emailed to ${sentTo}.` };
+    } catch (error) {
+      if (error instanceof EmailNotConfiguredError) {
+        return { status: "error", message: "Email is not set up for this workspace yet. Create a link and send it yourself." };
+      }
+      throw error;
+    }
+  });
+}
+
+export async function revokeLinksAction(id: string): Promise<ShareState> {
+  return write(async ({ actor }) => {
+    const { revoked } = await revokeShareLinks(tenantData, actor, id);
+    refresh(id);
+    return { status: "saved", message: revoked ? `${revoked} ${revoked === 1 ? "link" : "links"} revoked.` : "No active links." };
+  });
 }

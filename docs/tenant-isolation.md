@@ -89,7 +89,15 @@ composite keys), `activity` and
 `task` (reference `lead` or `customer` through composite keys), `taxRate`,
 `product` (references `taxRate`), `productPrice` (references `product`),
 `documentSequence`, `quote` (references `customer`, `lead` and its previous
-revision) and `quoteItem` (references `quote` and `product`). Domain services such as
+revision), `quoteItem` (references `quote` and `product`), `quoteLink`,
+`quoteEvent` and `quoteAcceptanceCode` (reference `quote`).
+
+Public quote pages (`/q/{token}`) have no session. `lib/tenant/public.ts`
+runs the one query without an organization: it sets the token's SHA-256 for
+its own transaction, and the read-only `quoteLink_token_lookup` policy lets it
+see exactly that link row. The rest runs as a tenant transaction for the
+link's workspace. Without the token the app role sees no link rows
+(`lib/quotes/public.db.test.ts`). Domain services such as
 `lib/customers/service.ts` receive `TenantData` (`lib/tenant`) instead of a
 database client, so they can only run scoped queries. Duplicate checks,
 conversion and CSV import/export (`lib/records`, `lib/leads/conversion.ts`,

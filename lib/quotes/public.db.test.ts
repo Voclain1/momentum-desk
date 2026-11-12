@@ -208,7 +208,11 @@ describe("rejection", () => {
     const { events } = await quoteActivity(data, actor.organizationId, quote.id);
     expect(events.find((e) => e.kind === "rejected")).toMatchObject({ name: "Chidi", reason: "Too expensive for now" });
     expect(await requestAcceptanceCode(deps(), token, { name: "Chidi" }, visitor)).toMatchObject({ ok: false, message: "This quote has already been answered." });
-    // A rejected quote can still be revised into a new offer.
-    await expect(reviseQuote(data, actor, quote.id, { today: "2026-11-12" })).resolves.toMatchObject({ revision: 2 });
+    // A rejected quote can still be revised into a new offer; once that is
+    // sent, the old link says it was replaced (D16).
+    const revision = await reviseQuote(data, actor, quote.id, { today: "2026-11-12" });
+    expect(await openQuote(deps(), token, visitor)).toMatchObject({ state: "ready" });
+    await sendQuote(data, actor, revision.id, 1, { today: "2026-11-12" });
+    expect(await openQuote(deps(), token, visitor)).toEqual({ state: "superseded", seller: "Bright Solar" });
   });
 });

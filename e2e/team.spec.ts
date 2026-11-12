@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { lastEmailTo } from "./outbox";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -49,11 +50,13 @@ test("an owner invites a teammate who signs up, confirms their email and joins",
   await inviteForm.getByLabel("Email").fill(inviteeEmail);
   await inviteForm.getByLabel("Role").selectOption("sales");
   await inviteForm.getByRole("button", { name: "Invite" }).click();
-  await expect(owner.getByRole("status")).toContainText(`Invitation created for ${inviteeEmail}`);
+  // End-to-end runs deliver email to the test outbox (lib/email).
+  await expect(owner.getByRole("status")).toContainText(`Invitation emailed to ${inviteeEmail}`);
   const row = owner.getByRole("row", { name: new RegExp(inviteeEmail) });
   await expect(row).toContainText("Sales");
   const link = (await row.locator("[data-invitation-link]").textContent())!.trim();
   expect(link).toMatch(/^\/invite\//);
+  expect((await lastEmailTo(inviteeEmail)).text).toContain(link);
 
   // The invitee opens the link with no account yet.
   const invitee = await browser.newPage();

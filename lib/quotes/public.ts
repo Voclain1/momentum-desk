@@ -66,7 +66,14 @@ type Loaded = { link: PublicLink; quote: Quote & { items: QuoteItem[] }; today: 
 async function load(deps: PublicDeps, tenant: TenantDb, link: PublicLink, now: Date): Promise<Loaded | null> {
   const quote = await tenant.quote.findUnique({ where: { id: link.quoteId }, include: { items: { orderBy: { position: "asc" } } } });
   if (!quote || quote.status === "draft") return null;
-  return { link, quote, today: todayIn(link.organization.timezone, now) };
+  // A newer sent revision replaces this one for the customer whatever its own
+  // status (D16): a declined quote that was revised is replaced too.
+  const newer = await tenant.quote.findFirst({
+    where: { number: quote.number, revision: { gt: quote.revision }, status: { not: "draft" } },
+    select: { id: true },
+  });
+  const replaced = newer && quote.status !== "superseded" ? { ...quote, status: "superseded" } : quote;
+  return { link, quote: replaced, today: todayIn(link.organization.timezone, now) };
 }
 
 const isOpen = (quote: Quote, today: string) => quote.status === "sent" && quote.expiresOn >= dateValue(today);
