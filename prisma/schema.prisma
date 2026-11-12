@@ -263,6 +263,7 @@ model Customer {
   contacts     Contact[]
   activities   Activity[]
   tasks        Task[]
+  leads        Lead[]
 
   /// Lets child tables reference (id, organizationId), so a child row can
   /// never point at another organization's customer.
@@ -349,6 +350,10 @@ model Lead {
   /// Set when the lead reaches a won or lost stage; cleared if reopened.
   closedAt            DateTime? @db.Timestamptz(3)
   lostReason          String?
+  /// The customer this lead became or belongs to (spec §7.2 conversion).
+  /// The lead and its history stay; only the link is added.
+  customerId          String?
+  convertedAt         DateTime? @db.Timestamptz(3)
   archivedAt          DateTime? @db.Timestamptz(3)
   createdById         String?
   version             Int       @default(1)
@@ -360,6 +365,8 @@ model Lead {
   stage        PipelineStage @relation(fields: [stageId, organizationId], references: [id, organizationId], onDelete: NoAction)
   owner        User?         @relation("LeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   createdBy    User?         @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  /// Composite key: the linked customer must be in the same workspace.
+  customer     Customer?     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
   activities   Activity[]
   tasks        Task[]
 
@@ -369,6 +376,7 @@ model Lead {
   @@index([organizationId, ownerUserId])
   @@index([organizationId, nextFollowUpOn])
   @@index([organizationId, updatedAt])
+  @@index([organizationId, customerId])
   @@map("lead")
 }
 
