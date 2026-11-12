@@ -33,6 +33,14 @@ export const LABELS: Record<AuditAction, string> = {
   "task.completed": "completed a task",
   "task.reopened": "reopened a task",
   "task.removed": "removed a task",
+  "tax_rate.created": "added a tax rate",
+  "tax_rate.updated": "changed a tax rate",
+  "tax_rate.archived": "archived a tax rate",
+  "tax_rate.restored": "restored a tax rate",
+  "product.created": "added a product",
+  "product.updated": "updated a product",
+  "product.deactivated": "deactivated a product",
+  "product.reactivated": "reactivated a product",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

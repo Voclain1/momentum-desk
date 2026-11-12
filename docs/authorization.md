@@ -15,13 +15,15 @@ test change.
 | Workspace summary (`workspace:read`) | Yes | Yes | Yes | Yes | Yes |
 | Customers: read/write | Yes | Yes | Yes | Yes | No |
 | Leads, opportunities, pipeline: read/write | Yes | Yes | Yes | No | No |
+| Catalogue and tax rates: read | Yes | Yes | Yes | Yes | No |
+| Catalogue: write (products, prices) | Yes | Yes | No | No | No |
 | Quotes: read/write | Yes | Yes | Yes | No | No |
 | Invoices: read/write | Yes | Yes | No | Yes | No |
 | Void invoices | Yes | Yes | No | No | No |
 | Payments: read / record manually | Yes | Yes | No | Yes | No |
 | Collections: read/write | Yes | Yes | No | Yes | No |
 | Export business data | Yes | Yes | No | No | No |
-| Workspace settings, members, payment providers | Yes | Yes | No | No | No |
+| Workspace settings (including tax rates), members, payment providers | Yes | Yes | No | No | No |
 | Ownership operations | Yes | No | No | No | No |
 
 `member` has no implicit access to customer or financial records. A workspace
