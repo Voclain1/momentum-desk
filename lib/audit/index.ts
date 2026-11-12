@@ -70,7 +70,10 @@ export type AuditAction =
   | "invoice.dispute_resolved"
   | "payment.recorded"
   | "payment.voided"
-  | "invoice.settings_updated";
+  | "invoice.settings_updated"
+  | "invoice.link_created"
+  | "invoice.links_revoked"
+  | "invoice.emailed";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

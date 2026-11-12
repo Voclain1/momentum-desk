@@ -64,6 +64,9 @@ export const LABELS: Record<AuditAction, string> = {
   "payment.recorded": "recorded a payment",
   "payment.voided": "voided a payment",
   "invoice.settings_updated": "changed invoice settings",
+  "invoice.link_created": "created an invoice link",
+  "invoice.links_revoked": "revoked invoice links",
+  "invoice.emailed": "emailed an invoice",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */
