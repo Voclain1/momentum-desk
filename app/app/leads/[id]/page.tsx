@@ -3,16 +3,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RecordNotFoundError } from "@/lib/errors";
 import { leadName } from "@/lib/leads/labels";
+import { conversionCandidates } from "@/lib/leads/conversion";
 import { getLead } from "@/lib/leads/service";
 import { money, toDecimalString } from "@/lib/money";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 import { ArchiveButton } from "../../customers/[id]/customer-panels";
+import { PossibleDuplicates } from "../../_components/duplicates";
 import { NoAccess } from "../../_components/no-access";
 import { RecordWork } from "../../work/record-work";
-import { setLeadArchivedAction, updateLeadAction } from "../actions";
+import { convertLeadAction, setLeadArchivedAction, updateLeadAction } from "../actions";
 import { LeadForm } from "../lead-form";
 import { leadFormData } from "../page-data";
+import { ConversionPanel } from "./conversion-panel";
 
 export const metadata: Metadata = { title: "Lead — MomentumDesk" };
 
@@ -29,8 +32,12 @@ export default async function LeadPage({ params }: PageProps<"/app/leads/[id]">)
     if (error instanceof RecordNotFoundError) notFound();
     throw error;
   }
-  const options = await leadFormData(organization.id);
+  const [options, found] = await Promise.all([leadFormData(organization.id), conversionCandidates(tenantData, organization.id, lead.id)]);
   const canEdit = tenant.can("sales:write");
+  const canSeeCustomers = tenant.can("customers:read");
+  // Customers only for members who may open them; never the lead's own customer.
+  const duplicates = found.filter((d) => (d.type === "lead" || canSeeCustomers) && d.id !== lead.customerId);
+  const reasons = (list: string[]) => list.map((reason) => `same ${reason}`).join(", ");
   const date = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: organization.timezone });
   const blank = (value: string | null) => value ?? "";
 
@@ -59,7 +66,7 @@ export default async function LeadPage({ params }: PageProps<"/app/leads/[id]">)
         {lead.createdBy ? ` by ${lead.createdBy.name}` : ""} · In {lead.stage.name} since {date.format(lead.stageChangedAt)}
         {lead.closedAt ? ` · Closed ${date.format(lead.closedAt)}` : ""}
       </p>
-      <section className="settings-page">
+      <section className="customer-layout">
         <div className="panel settings-panel wide">
           <LeadForm
             action={updateLeadAction.bind(null, lead.id)}
@@ -85,6 +92,21 @@ export default async function LeadPage({ params }: PageProps<"/app/leads/[id]">)
               lostReason: blank(lead.lostReason),
             }}
           />
+        </div>
+        <div className="record-side">
+          <ConversionPanel
+            action={convertLeadAction.bind(null, lead.id)}
+            canConvert={canEdit && tenant.can("customers:write")}
+            converted={
+              lead.customer && canSeeCustomers
+                ? { ...lead.customer, on: lead.convertedAt ? date.format(lead.convertedAt) : "" }
+                : null
+            }
+            candidates={duplicates
+              .filter((d) => d.type === "customer")
+              .map((d) => ({ id: d.id, label: d.label, reasons: reasons(d.reasons) }))}
+          />
+          <PossibleDuplicates duplicates={duplicates} />
         </div>
       </section>
       <RecordWork tenant={tenant} parent={{ type: "lead", id: lead.id }} canWrite={canEdit} />

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { listTeam } from "@/lib/auth/team";
 import { InputValidationError, RecordConflictError, RecordNotFoundError } from "@/lib/errors";
+import { convertLead } from "@/lib/leads/conversion";
 import { createLead, moveLead, setLeadArchived, updateLead } from "@/lib/leads/service";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
@@ -87,4 +88,33 @@ export async function setLeadArchivedAction(id: string, archived: boolean): Prom
     refresh(id);
     return { status: "saved", message: archived ? "Lead archived." : "Lead restored." };
   });
+}
+
+/**
+ * Converts a lead into a new customer, or links it to an existing one
+ * (`target` is "new" or a customer id). Needs sales:write and
+ * customers:write; the services re-check the records in one transaction.
+ */
+export async function convertLeadAction(id: string, _: FormState, form: FormData): Promise<FormState> {
+  let customerId: string | undefined;
+  const state = await write(async (actor) => {
+    const tenant = await requireTenant("customers:write").catch((error) => {
+      if (error instanceof AuthorizationError) return null;
+      throw error;
+    });
+    if (!tenant) return { status: "error", message: "Your role cannot create customers." };
+    const target = String(form.get("target") ?? "new");
+    ({ customerId } = await convertLead(
+      tenantData,
+      actor,
+      id,
+      target === "new" ? { mode: "new" } : { mode: "existing", customerId: target },
+    ));
+    refresh(id);
+    revalidatePath("/app/customers");
+    revalidatePath(`/app/customers/${customerId}`);
+    return { status: "saved", message: "Lead converted." };
+  });
+  if (customerId) redirect(`/app/customers/${customerId}`);
+  return state;
 }

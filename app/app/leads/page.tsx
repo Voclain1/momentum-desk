@@ -64,6 +64,15 @@ export default async function LeadsPage({ searchParams }: PageProps<"/app/leads"
         </div>
         <div className="header-actions">
           <Link href="/app/pipeline" className="icon-button text-button link-as-button">Board</Link>
+          {tenant.can("data:export") ? (
+            <>
+              {/* A file download, not a page: a plain link. */}
+              <a href="/app/leads/export" className="icon-button text-button link-as-button" download>Export</a>
+              {tenant.can("sales:write") ? (
+                <Link href="/app/import?type=leads" className="icon-button text-button link-as-button">Import</Link>
+              ) : null}
+            </>
+          ) : null}
           {tenant.can("sales:write") ? (
             <Link href="/app/leads/new" className="new-button link-as-button">
               <span aria-hidden>＋</span> New lead

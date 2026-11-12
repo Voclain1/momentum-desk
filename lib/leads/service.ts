@@ -163,7 +163,12 @@ export async function getBoard(data: TenantData, organizationId: string) {
 export async function getLead(data: TenantData, organizationId: string, id: string) {
   const lead = await data.scoped(organizationId).lead.findUnique({
     where: { id },
-    include: { stage: true, owner: { select: { name: true } }, createdBy: { select: { name: true } } },
+    include: {
+      stage: true,
+      owner: { select: { name: true } },
+      createdBy: { select: { name: true } },
+      customer: { select: { id: true, displayName: true } },
+    },
   });
   if (!lead) throw new RecordNotFoundError("Lead");
   return lead;

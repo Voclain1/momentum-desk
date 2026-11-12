@@ -1,4 +1,5 @@
-import type { TenantDb } from "@/lib/tenant/core";
+import { RecordNotFoundError } from "@/lib/errors";
+import type { TenantData, TenantDb } from "@/lib/tenant/core";
 
 /**
  * Possible duplicates among customers and leads (spec §7.2), by email, phone
@@ -95,4 +96,18 @@ export async function findDuplicates(
       reasons: reasonsFor({ emails: [lead.email], phones: [lead.phone], names: [lead.contactName, lead.companyName] }),
     })),
   ].filter((duplicate) => duplicate.reasons.length > 0);
+}
+
+/** Possible duplicates of a customer, leaving out the leads already linked to it. */
+export async function customerDuplicates(data: TenantData, organizationId: string, customerId: string) {
+  const tenant = data.scoped(organizationId);
+  const customer = await tenant.customer.findUnique({ where: { id: customerId }, include: { leads: { select: { id: true } } } });
+  if (!customer) throw new RecordNotFoundError("Customer");
+  const linked = new Set(customer.leads.map((lead) => lead.id));
+  const found = await findDuplicates(
+    tenant,
+    { email: customer.email, phone: customer.phone, names: [customer.displayName, customer.legalName] },
+    { customerId },
+  );
+  return found.filter((duplicate) => !(duplicate.type === "lead" && linked.has(duplicate.id)));
 }

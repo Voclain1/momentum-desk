@@ -3,9 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/lib/customers/service";
 import { RecordNotFoundError } from "@/lib/errors";
+import { leadName } from "@/lib/leads/labels";
+import { customerDuplicates } from "@/lib/records/duplicates";
 import { settingsOptions } from "@/lib/organizations/options";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
+import { PossibleDuplicates } from "../../_components/duplicates";
 import { NoAccess } from "../../_components/no-access";
 import { RecordWork } from "../../work/record-work";
 import { setArchivedAction, updateCustomerAction } from "../actions";
@@ -29,6 +32,10 @@ export default async function CustomerPage({ params }: PageProps<"/app/customers
   }
 
   const canEdit = tenant.can("customers:write");
+  const canSeeLeads = tenant.can("sales:read");
+  const duplicates = (await customerDuplicates(tenantData, tenant.organization.id, customer.id)).filter(
+    (d) => d.type === "customer" || canSeeLeads,
+  );
   const { countries, currencies, languages } = settingsOptions();
   const { organization } = tenant;
   const date = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: organization.timezone });
@@ -86,13 +93,39 @@ export default async function CustomerPage({ params }: PageProps<"/app/customers
             }}
           />
         </div>
-        <Contacts
-          customerId={customer.id}
-          canEdit={canEdit}
-          contacts={customer.contacts.map(({ id, name, email, phone, jobTitle, isPrimary }) => ({
-            id, name, email: email ?? "", phone: phone ?? "", jobTitle: jobTitle ?? "", isPrimary,
-          }))}
-        />
+        <div className="record-side">
+          <Contacts
+            customerId={customer.id}
+            canEdit={canEdit}
+            contacts={customer.contacts.map(({ id, name, email, phone, jobTitle, isPrimary }) => ({
+              id, name, email: email ?? "", phone: phone ?? "", jobTitle: jobTitle ?? "", isPrimary,
+            }))}
+          />
+          {canSeeLeads && customer.leads.length > 0 ? (
+            <aside className="panel contacts-panel" aria-label="Leads">
+              <div className="panel-heading">
+                <div>
+                  <h3>Leads</h3>
+                  <p>Leads converted into or linked to this customer, with their history.</p>
+                </div>
+              </div>
+              <ul className="contact-list">
+                {customer.leads.map((lead) => (
+                  <li key={lead.id}>
+                    <div>
+                      <strong>
+                        <Link href={`/app/leads/${lead.id}`}>{leadName(lead)}</Link>
+                        <span className="pill">{lead.stage.name}</span>
+                      </strong>
+                      {lead.convertedAt ? <small>Converted {date.format(lead.convertedAt)}</small> : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          ) : null}
+          <PossibleDuplicates duplicates={duplicates} />
+        </div>
       </section>
       <RecordWork tenant={tenant} parent={{ type: "customer", id: customer.id }} canWrite={canEdit} />
     </>
