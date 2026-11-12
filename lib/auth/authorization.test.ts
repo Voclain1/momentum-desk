@@ -6,9 +6,12 @@ import { hasPermission, PERMISSIONS, type Permission } from "./authorization";
 const expected: Record<string, readonly Permission[]> = {
   owner: PERMISSIONS,
   admin: PERMISSIONS.filter((permission) => permission !== "ownership:manage"),
-  sales: ["workspace:read", "customers:read", "customers:write", "sales:read", "sales:write", "quotes:read", "quotes:write"],
+  sales: [
+    "workspace:read", "customers:read", "customers:write", "sales:read", "sales:write",
+    "catalogue:read", "quotes:read", "quotes:write",
+  ],
   finance: [
-    "workspace:read", "customers:read", "customers:write", "invoices:read", "invoices:write",
+    "workspace:read", "customers:read", "customers:write", "catalogue:read", "invoices:read", "invoices:write",
     "payments:read", "payments:record", "collections:read", "collections:write",
   ],
   member: ["workspace:read"],
@@ -37,7 +40,7 @@ describe("hasPermission", () => {
   });
 
   it("keeps sensitive actions to owners and admins", () => {
-    for (const permission of ["invoices:void", "data:export", "providers:manage", "members:manage", "settings:write"] as const) {
+    for (const permission of ["catalogue:write", "invoices:void", "data:export", "providers:manage", "members:manage", "settings:write"] as const) {
       expect(["owner", "admin", "sales", "finance", "member"].filter((role) => hasPermission(role, permission))).toEqual([
         "owner",
         "admin",

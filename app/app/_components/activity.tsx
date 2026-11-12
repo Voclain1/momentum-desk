@@ -33,6 +33,37 @@ export const LABELS: Record<AuditAction, string> = {
   "task.completed": "completed a task",
   "task.reopened": "reopened a task",
   "task.removed": "removed a task",
+  "tax_rate.created": "added a tax rate",
+  "tax_rate.updated": "changed a tax rate",
+  "tax_rate.archived": "archived a tax rate",
+  "tax_rate.restored": "restored a tax rate",
+  "product.created": "added a product",
+  "product.updated": "updated a product",
+  "product.deactivated": "deactivated a product",
+  "product.reactivated": "reactivated a product",
+  "quote.created": "created a quote",
+  "quote.updated": "edited a draft quote",
+  "quote.deleted": "deleted a draft quote",
+  "quote.sent": "sent a quote",
+  "quote.revised": "started a quote revision",
+  "quote.duplicated": "duplicated a quote",
+  "quote.numbering_updated": "changed quote numbering",
+  "quote.link_created": "created a quote link",
+  "quote.links_revoked": "revoked quote links",
+  "quote.emailed": "emailed a quote",
+  "quote.accepted": "accepted a quote",
+  "quote.rejected": "declined a quote",
+  "invoice.numbering_updated": "changed invoice numbering",
+  "invoice.created": "created a draft invoice",
+  "invoice.updated": "edited a draft invoice",
+  "invoice.deleted": "deleted a draft invoice",
+  "invoice.issued": "issued an invoice",
+  "invoice.voided": "voided an invoice",
+  "invoice.disputed": "marked an invoice disputed",
+  "invoice.dispute_resolved": "resolved an invoice dispute",
+  "payment.recorded": "recorded a payment",
+  "payment.voided": "voided a payment",
+  "invoice.settings_updated": "changed invoice settings",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */
@@ -61,7 +92,7 @@ export async function RecentActivity({ tenant }: { tenant: Tenant }) {
         {entries.map((entry) => (
           <li key={entry.id}>
             <span>
-              <strong>{entry.actor?.name ?? "System"}</strong>{" "}
+              <strong>{entry.actor?.name ?? (entry.action === "quote.accepted" || entry.action === "quote.rejected" ? "A customer" : "System")}</strong>{" "}
               {LABELS[entry.action as AuditAction] ?? entry.action}
             </span>
             <time dateTime={entry.createdAt.toISOString()}>{time.format(entry.createdAt)}</time>

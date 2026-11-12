@@ -232,3 +232,19 @@ export async function removeContact(data: TenantData, actor: Actor, contactId: s
     });
   });
 }
+
+/** Active customers and their contacts, for choosing one on a quote. */
+export async function customerChoices(data: TenantData, organizationId: string) {
+  return data.scoped(organizationId).customer.findMany({
+    where: { archivedAt: null },
+    orderBy: [{ displayName: "asc" }, { id: "asc" }],
+    take: 2000,
+    select: {
+      id: true,
+      displayName: true,
+      email: true,
+      preferredCurrency: true,
+      contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }], select: { id: true, name: true, email: true, isPrimary: true } },
+    },
+  });
+}

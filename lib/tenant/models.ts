@@ -6,7 +6,11 @@
  * lib/tenant/tenant.db.test.ts until it is listed here or in
  * `AUTH_MANAGED_MODELS`.
  */
-export const TENANT_MODELS = ["auditLog", "customer", "contact", "pipelineStage", "lead", "activity", "task"] as const;
+export const TENANT_MODELS = [
+  "auditLog", "customer", "contact", "pipelineStage", "lead", "activity", "task", "taxRate", "product", "productPrice",
+  "documentSequence", "quote", "quoteItem", "quoteLink", "quoteEvent", "quoteAcceptanceCode",
+  "invoice", "invoiceItem", "payment", "paymentAllocation", "invoiceSettings",
+] as const;
 export type TenantModel = (typeof TENANT_MODELS)[number];
 
 /**

@@ -39,7 +39,38 @@ export type AuditAction =
   | "task.updated"
   | "task.completed"
   | "task.reopened"
-  | "task.removed";
+  | "task.removed"
+  | "tax_rate.created"
+  | "tax_rate.updated"
+  | "tax_rate.archived"
+  | "tax_rate.restored"
+  | "product.created"
+  | "product.updated"
+  | "product.deactivated"
+  | "product.reactivated"
+  | "quote.created"
+  | "quote.updated"
+  | "quote.deleted"
+  | "quote.sent"
+  | "quote.revised"
+  | "quote.duplicated"
+  | "quote.numbering_updated"
+  | "quote.link_created"
+  | "quote.links_revoked"
+  | "quote.emailed"
+  | "quote.accepted"
+  | "quote.rejected"
+  | "invoice.numbering_updated"
+  | "invoice.created"
+  | "invoice.updated"
+  | "invoice.deleted"
+  | "invoice.issued"
+  | "invoice.voided"
+  | "invoice.disputed"
+  | "invoice.dispute_resolved"
+  | "payment.recorded"
+  | "payment.voided"
+  | "invoice.settings_updated";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -47,7 +78,7 @@ export interface AuditEntry {
   action: AuditAction;
   /** The signed-in user who acted. Null for system actions. */
   actorUserId: string | null;
-  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task";
+  targetType?: "organization" | "member" | "invitation" | "customer" | "contact" | "lead" | "activity" | "task" | "tax_rate" | "product" | "quote" | "invoice" | "payment";
   targetId?: string;
   /** Details of the change. Never passwords, tokens or full documents. */
   metadata?: { [key: string]: JsonValue };

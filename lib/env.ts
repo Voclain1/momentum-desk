@@ -8,7 +8,8 @@ import { z } from "zod";
  * Build-only variables (SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT for
  * source map upload) are read by next.config.ts and are optional.
  */
-const envSchema = z.object({
+const envSchema = z
+  .object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Public origin of the app, e.g. https://momentumdesk.app. */
   APP_URL: z.url().optional(),
@@ -36,10 +37,31 @@ const envSchema = z.object({
       error: 'must be an address or "Name <address>"',
     })
     .optional(),
-}).refine((env) => !env.RESEND_API_KEY === !env.EMAIL_FROM, {
-  error: "RESEND_API_KEY and EMAIL_FROM must be set together",
-  path: ["EMAIL_FROM"],
-});
+  /**
+   * End-to-end tests only: write emails to this file (one JSON object per
+   * line) instead of sending them, so a test can read a link or code. Refused
+   * unless APP_URL is localhost, so it can never divert production email.
+   */
+  EMAIL_TEST_OUTBOX: z.string().optional(),
+})
+  .refine((env) => !env.RESEND_API_KEY === !env.EMAIL_FROM, {
+    error: "RESEND_API_KEY and EMAIL_FROM must be set together",
+    path: ["EMAIL_FROM"],
+  })
+  .refine((env) => !env.EMAIL_TEST_OUTBOX || isLocalUrl(env.APP_URL), {
+    error: "is only allowed when APP_URL is a localhost address",
+    path: ["EMAIL_TEST_OUTBOX"],
+  });
+
+/** Whether a URL points at this machine (http://localhost:3000, http://127.0.0.1). */
+export function isLocalUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
 
 export type Env = z.infer<typeof envSchema>;
 

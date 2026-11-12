@@ -1,5 +1,9 @@
 import type { DbClient } from "@/lib/db/client";
-import type { Activity, AuditLog, Contact, Customer, Lead, PipelineStage, Prisma, Task } from "@/lib/generated/prisma/client";
+import type {
+  Activity, AuditLog, Contact, Customer, DocumentSequence, Invoice, InvoiceItem, InvoiceSettings, Lead, Payment, PaymentAllocation, PipelineStage, Prisma, Product, ProductPrice, Quote,
+  QuoteAcceptanceCode, QuoteEvent, QuoteItem, QuoteLink,
+  Task, TaxRate,
+} from "@/lib/generated/prisma/client";
 import { TENANT_MODELS, type TenantModel } from "./models";
 import { SCOPED_OPERATIONS, scopeArgs, TenantViolationError } from "./scope";
 
@@ -12,6 +16,20 @@ interface TenantModelTypes {
   lead: { create: Prisma.LeadUncheckedCreateInput; row: Lead };
   activity: { create: Prisma.ActivityUncheckedCreateInput; row: Activity };
   task: { create: Prisma.TaskUncheckedCreateInput; row: Task };
+  taxRate: { create: Prisma.TaxRateUncheckedCreateInput; row: TaxRate };
+  product: { create: Prisma.ProductUncheckedCreateInput; row: Product };
+  productPrice: { create: Prisma.ProductPriceUncheckedCreateInput; row: ProductPrice };
+  documentSequence: { create: Prisma.DocumentSequenceUncheckedCreateInput; row: DocumentSequence };
+  quote: { create: Prisma.QuoteUncheckedCreateInput; row: Quote };
+  quoteItem: { create: Prisma.QuoteItemUncheckedCreateInput; row: QuoteItem };
+  quoteLink: { create: Prisma.QuoteLinkUncheckedCreateInput; row: QuoteLink };
+  quoteEvent: { create: Prisma.QuoteEventUncheckedCreateInput; row: QuoteEvent };
+  quoteAcceptanceCode: { create: Prisma.QuoteAcceptanceCodeUncheckedCreateInput; row: QuoteAcceptanceCode };
+  invoice: { create: Prisma.InvoiceUncheckedCreateInput; row: Invoice };
+  invoiceItem: { create: Prisma.InvoiceItemUncheckedCreateInput; row: InvoiceItem };
+  payment: { create: Prisma.PaymentUncheckedCreateInput; row: Payment };
+  paymentAllocation: { create: Prisma.PaymentAllocationUncheckedCreateInput; row: PaymentAllocation };
+  invoiceSettings: { create: Prisma.InvoiceSettingsUncheckedCreateInput; row: InvoiceSettings };
 }
 
 /** Create input without the organization, which tenantDb always sets. */

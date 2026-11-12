@@ -53,6 +53,9 @@ export default async function LeadPage({ params }: PageProps<"/app/leads/[id]">)
         </div>
         {canEdit ? (
           <div className="header-actions">
+            {lead.customerId && tenant.can("quotes:write") ? (
+              <Link href={`/app/quotes/new?lead=${lead.id}`} className="new-button link-as-button">＋ New quote</Link>
+            ) : null}
             <ArchiveButton
               action={setLeadArchivedAction.bind(null, lead.id, !lead.archivedAt)}
               archived={Boolean(lead.archivedAt)}

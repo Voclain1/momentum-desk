@@ -39,6 +39,13 @@ model User {
   tasksAssigned    Task[]       @relation("TaskAssignee")
   tasksCreated     Task[]       @relation("TaskCreatedBy")
   tasksCompleted   Task[]       @relation("TaskCompletedBy")
+  productsCreated  Product[]    @relation("ProductCreatedBy")
+  quotesCreated    Quote[]      @relation("QuoteCreatedBy")
+  quoteLinks       QuoteLink[]  @relation("QuoteLinkCreatedBy")
+  invoicesCreated  Invoice[]    @relation("InvoiceCreatedBy")
+  invoicesVoided   Invoice[]    @relation("InvoiceVoidedBy")
+  paymentsRecorded Payment[]    @relation("PaymentRecordedBy")
+  paymentsVoided   Payment[]    @relation("PaymentVoidedBy")
 
   @@map("user")
 }
@@ -135,6 +142,20 @@ model Organization {
   leads       Lead[]
   activities  Activity[]
   tasks       Task[]
+  taxRates    TaxRate[]
+  products    Product[]
+  prices      ProductPrice[]
+  sequences   DocumentSequence[]
+  quotes      Quote[]
+  quoteItems  QuoteItem[]
+  quoteLinks  QuoteLink[]
+  quoteEvents QuoteEvent[]
+  quoteCodes  QuoteAcceptanceCode[]
+  invoices    Invoice[]
+  invoiceItems InvoiceItem[]
+  payments    Payment[]
+  allocations PaymentAllocation[]
+  invoiceSettings InvoiceSettings?
 
   @@map("organization")
 }
@@ -264,6 +285,9 @@ model Customer {
   activities   Activity[]
   tasks        Task[]
   leads        Lead[]
+  quotes       Quote[]
+  invoices     Invoice[]
+  payments     Payment[]
 
   /// Lets child tables reference (id, organizationId), so a child row can
   /// never point at another organization's customer.
@@ -369,6 +393,8 @@ model Lead {
   customer     Customer?     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
   activities   Activity[]
   tasks        Task[]
+  quotes       Quote[]
+  invoices     Invoice[]
 
   /// Lets activities and tasks reference (id, organizationId).
   @@unique([id, organizationId])
@@ -443,4 +469,445 @@ model Task {
   @@index([organizationId, leadId])
   @@index([organizationId, customerId])
   @@map("task")
+}
+
+/// A named tax rate the workspace charges, e.g. "VAT 7.5%" (decision D14).
+/// Documents copy the name and rate onto each line, so editing or archiving a
+/// rate never changes an existing quote or invoice.
+model TaxRate {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  name           String
+  /// Thousandths of a percent: 7.5% is 7500, 100% is 100000 (decision D12).
+  milliPercent   Int
+  /// Archived rates are not offered for new lines.
+  archivedAt     DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, archivedAt])
+  @@map("taxRate")
+}
+
+/// A product or service the workspace sells (spec §7.4).
+model Product {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  name           String
+  description    String?
+  /// Optional code, unique within the workspace.
+  sku            String?
+  /// e.g. "hour", "kg", "unit". Free text: units differ by trade and language.
+  unit           String?
+  category       String?
+  /// Inactive products are not offered for new lines.
+  active         Boolean   @default(true)
+  /// Default tax for new lines; a line can change it.
+  taxRateId      String?
+  createdById    String?
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quoteItems   QuoteItem[]
+  invoiceItems InvoiceItem[]
+  /// Composite key: the default tax rate must be the same workspace's.
+  taxRate      TaxRate?       @relation(fields: [taxRateId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  createdBy    User?          @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  prices       ProductPrice[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, sku])
+  @@index([organizationId, active, name])
+  @@map("product")
+}
+
+/// A product's price in one currency (decision D13). Never converted.
+model ProductPrice {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  productId      String
+  /// ISO 4217.
+  currency       String
+  /// Per unit, in minor units of `currency`, before tax and discount.
+  unitPriceMinor BigInt
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@unique([productId, currency])
+  @@index([organizationId, productId])
+  @@map("productPrice")
+}
+
+/// Display numbers for documents, per workspace and kind ("quote"; later
+/// "invoice"). Numbers are display identifiers, never keys (spec §9).
+model DocumentSequence {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  kind           String
+  /// e.g. "Q-". Configurable in Settings.
+  prefix         String
+  /// The next number to hand out.
+  nextNumber     Int      @default(1)
+  /// Minimum digits, zero-padded: 4 gives Q-0001.
+  padding        Int      @default(4)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind])
+  @@map("documentSequence")
+}
+
+/// One revision of a quote (spec §7.5). Revisions share a number; sending a
+/// new revision supersedes the previous one. Only drafts change; a sent quote
+/// is a fixed snapshot, and an accepted one is never revised.
+model Quote {
+  id                 String    @id @default(uuid(7))
+  organizationId     String
+  /// Display number, e.g. "Q-0042", shared by all revisions.
+  number             String
+  revision           Int       @default(1)
+  /// The revision this one replaces.
+  previousId         String?
+  /// "draft", "sent", "accepted", "rejected" or "superseded". "Viewed" and
+  /// "expired" are shown from viewedAt and expiresOn, not stored.
+  status             String    @default("draft")
+  customerId         String
+  /// The lead this quote is for, if any (spec §7.2 → §7.5).
+  leadId             String?
+  /// ISO 4217; every line is in this currency (spec §5.2).
+  currency           String
+  /// "exclusive" or "inclusive" (decision D14).
+  taxMode            String
+  /// Calendar dates in the workspace's timezone.
+  issuedOn           DateTime  @db.Date
+  expiresOn          DateTime  @db.Date
+  /// Who the quote is addressed to, copied when saved.
+  recipientName      String?
+  recipientEmail     String?
+  /// The customer's billing details as they were when the quote was saved;
+  /// fixed once sent.
+  customerSnapshot   Json
+  notes              String?
+  terms              String?
+  /// Totals from lib/documents/calc (decision D12), in minor units of currency.
+  subtotalMinor      BigInt    @default(0)
+  discountMinor      BigInt    @default(0)
+  taxMinor           BigInt    @default(0)
+  totalMinor         BigInt    @default(0)
+  /// One entry per tax rate: name, rate, base and tax (amounts as strings).
+  taxLines           Json      @default("[]")
+  sentAt             DateTime? @db.Timestamptz(3)
+  /// First time the customer opened the public link.
+  viewedAt           DateTime? @db.Timestamptz(3)
+  acceptedAt         DateTime? @db.Timestamptz(3)
+  rejectedAt         DateTime? @db.Timestamptz(3)
+  createdById        String?
+  version            Int       @default(1)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Composite keys: the customer, lead and previous revision are this workspace's.
+  customer     Customer     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  lead         Lead?        @relation(fields: [leadId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  previous     Quote?       @relation("QuoteRevision", fields: [previousId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  revisions    Quote[]      @relation("QuoteRevision")
+  createdBy    User?        @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items        QuoteItem[]
+  links        QuoteLink[]
+  events       QuoteEvent[]
+  codes        QuoteAcceptanceCode[]
+  invoice      Invoice?
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, number, revision])
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, customerId])
+  @@index([organizationId, leadId])
+  @@map("quote")
+}
+
+/// A quote line. Everything it shows is copied here (spec §7.4), so catalogue
+/// and tax-rate edits never change it.
+model QuoteItem {
+  id               String  @id @default(uuid(7))
+  organizationId   String
+  quoteId          String
+  position         Int
+  /// The catalogue product it came from, if any; for reference only.
+  productId        String?
+  description      String
+  /// Thousandths: 1.5 is 1500 (decision D12).
+  quantityMilli    BigInt
+  unit             String?
+  unitPriceMinor   BigInt
+  /// "none", "percent" (value in thousandths of a percent) or "fixed" (minor units).
+  discountKind     String  @default("none")
+  discountValue    BigInt  @default(0)
+  /// Copied from the tax rate: its id groups lines into one tax line.
+  taxRateId        String?
+  taxName          String?
+  taxMilliPercent  Int?
+  grossMinor       BigInt
+  discountMinor    BigInt
+  netMinor         BigInt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote        @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  @@unique([quoteId, position])
+  @@index([organizationId, quoteId])
+  @@map("quoteItem")
+}
+
+/// A public link to one quote revision (decision D16). Only the SHA-256 hash
+/// of the token is stored, so the link is shown once when created. Valid
+/// until revoked, or until the quote is superseded.
+model QuoteLink {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  quoteId        String
+  /// Hex SHA-256 of the token. Globally unique; looked up without a session.
+  tokenHash      String    @unique
+  createdById    String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt      DateTime? @db.Timestamptz(3)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote                 @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  createdBy    User?                 @relation("QuoteLinkCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  codes        QuoteAcceptanceCode[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, quoteId])
+  @@map("quoteLink")
+}
+
+/// What happened to a quote on its public page: views, codes sent,
+/// acceptance and rejection, with the evidence decision D15 requires.
+/// Append-only.
+model QuoteEvent {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  quoteId        String
+  linkId         String?
+  /// "viewed", "code_sent", "accepted" or "rejected".
+  kind           String
+  /// As given by the customer (acceptance and rejection).
+  name           String?
+  /// Verified by the emailed code (acceptance).
+  email          String?
+  reason         String?
+  ipAddress      String?
+  userAgent      String?
+  /// SHA-256 of the quote's content as accepted: proves which version.
+  contentHash    String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote        @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, quoteId, createdAt])
+  @@map("quoteEvent")
+}
+
+/// A one-time code emailed to confirm acceptance (decision D15).
+model QuoteAcceptanceCode {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  quoteId        String
+  linkId         String
+  /// Where the code was sent; recorded as the verified email on acceptance.
+  email          String
+  name           String
+  /// Hex SHA-256 of the code, salted with this row's id.
+  codeHash       String
+  attempts       Int       @default(0)
+  expiresAt      DateTime  @db.Timestamptz(3)
+  usedAt         DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote        Quote        @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  link         QuoteLink    @relation(fields: [linkId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, quoteId, createdAt])
+  @@map("quoteAcceptanceCode")
+}
+
+/// An invoice (spec §7.6). Drafts change freely and have no number; issuing
+/// assigns the next number (decision D30) and fixes the content for good
+/// (D31, invoice_guard trigger). Paid, partly paid and overdue are derived
+/// from paidMinor and dueOn, never stored (D32).
+model Invoice {
+  id               String    @id @default(uuid(7))
+  organizationId   String
+  /// Display number, e.g. "INV-0042". Null until issued; never reused.
+  number           String?
+  /// "draft", "issued" or "void".
+  status           String    @default("draft")
+  customerId       String
+  leadId           String?
+  /// The accepted quote this invoice came from; at most one invoice per quote (D33).
+  quoteId          String?
+  /// ISO 4217; every line and payment is in this currency.
+  currency         String
+  taxMode          String
+  /// Calendar dates in the workspace's timezone.
+  issuedOn         DateTime  @db.Date
+  dueOn            DateTime  @db.Date
+  recipientName    String?
+  recipientEmail   String?
+  /// Billing details as they were at issue (refreshed on every draft save).
+  customerSnapshot Json
+  notes            String?
+  terms            String?
+  /// Payment instructions copied at issue, e.g. bank details.
+  paymentInstructions String?
+  subtotalMinor    BigInt    @default(0)
+  discountMinor    BigInt    @default(0)
+  taxMinor         BigInt    @default(0)
+  totalMinor       BigInt    @default(0)
+  taxLines         Json      @default("[]")
+  /// Sum of valid payment allocations, kept by the database (payment_allocation_sum trigger).
+  paidMinor        BigInt    @default(0)
+  /// totalMinor − paidMinor, always set by the database (invoice_outstanding trigger); for filtering.
+  outstandingMinor BigInt    @default(0)
+  issuedAt         DateTime? @db.Timestamptz(3)
+  viewedAt         DateTime? @db.Timestamptz(3)
+  voidedAt         DateTime? @db.Timestamptz(3)
+  voidReason       String?
+  voidedById       String?
+  /// The customer disputes the invoice; shown, and paused for collections (M5).
+  disputedAt       DateTime? @db.Timestamptz(3)
+  disputeReason    String?
+  createdById      String?
+  version          Int       @default(1)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer            @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  lead         Lead?               @relation(fields: [leadId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  quote        Quote?              @relation(fields: [quoteId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  createdBy    User?               @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  voidedBy     User?               @relation("InvoiceVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  items        InvoiceItem[]
+  allocations  PaymentAllocation[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, number])
+  /// One invoice per quote (D33).
+  @@unique([quoteId, organizationId])
+  @@index([organizationId, status, dueOn])
+  @@index([organizationId, customerId])
+  @@map("invoice")
+}
+
+/// An invoice line, copied like a quote line (spec §7.4).
+model InvoiceItem {
+  id               String  @id @default(uuid(7))
+  organizationId   String
+  invoiceId        String
+  position         Int
+  productId        String?
+  description      String
+  quantityMilli    BigInt
+  unit             String?
+  unitPriceMinor   BigInt
+  discountKind     String  @default("none")
+  discountValue    BigInt  @default(0)
+  taxRateId        String?
+  taxName          String?
+  taxMilliPercent  Int?
+  grossMinor       BigInt
+  discountMinor    BigInt
+  netMinor         BigInt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  @@unique([invoiceId, position])
+  @@index([organizationId, invoiceId])
+  @@map("invoiceItem")
+}
+
+/// Money received from a customer (spec §6). Manual in M3; providers add
+/// their own in M4. Never deleted: a mistake is voided with a reason.
+model Payment {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  customerId     String
+  currency       String
+  amountMinor    BigInt
+  /// "bank_transfer", "cash", "card", "mobile_money", "cheque" or "other".
+  method         String
+  /// "manual" now; a provider key later.
+  source         String    @default("manual")
+  /// Calendar date the money arrived, in the workspace's timezone.
+  receivedOn     DateTime  @db.Date
+  /// e.g. the bank transfer reference.
+  reference      String?
+  note           String?
+  recordedById   String?
+  voidedAt       DateTime? @db.Timestamptz(3)
+  voidReason     String?
+  voidedById     String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer            @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  recordedBy   User?               @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  voidedBy     User?               @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  allocations  PaymentAllocation[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, customerId, receivedOn])
+  @@map("payment")
+}
+
+/// How much of a payment settles an invoice. Valid while neither it nor its
+/// payment is voided; the invoice's paidMinor is their sum.
+model PaymentAllocation {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  paymentId      String
+  invoiceId      String
+  amountMinor    BigInt
+  voidedAt       DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment      Payment      @relation(fields: [paymentId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, paymentId])
+  @@map("paymentAllocation")
+}
+
+/// Workspace defaults for invoices: how to pay (copied onto each invoice at
+/// issue) and the default days until due.
+model InvoiceSettings {
+  id                  String   @id @default(uuid(7))
+  organizationId      String   @unique
+  paymentInstructions String?
+  defaultDueDays      Int      @default(14)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("invoiceSettings")
 }

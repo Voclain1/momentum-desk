@@ -6,6 +6,11 @@ import { parseEnv } from "./lib/env";
 parseEnv(process.env);
 
 const nextConfig: NextConfig = {
+  // PDF routes read the embedded fonts from disk (lib/documents/quote-pdf.ts).
+  outputFileTracingIncludes: {
+    "/app/quotes/\\[id\\]/pdf": ["./lib/documents/fonts/**/*"],
+    "/q/\\[token\\]/pdf": ["./lib/documents/fonts/**/*"],
+  },
   experimental: {
     // CSV imports accept files up to 1 MB (lib/transfer); leave room for
     // the multipart overhead around the file.

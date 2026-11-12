@@ -7,10 +7,14 @@ export function ArchiveButton({
   action,
   archived,
   noun = "customer",
+  labels,
+  confirm,
 }: {
   action: () => Promise<FormState | { status: string; message?: string }>;
   archived: boolean;
   noun?: string;
+  labels?: { archive: string; restore: string };
+  confirm?: string;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
@@ -23,13 +27,13 @@ export function ArchiveButton({
         disabled={pending}
         onClick={() =>
           start(async () => {
-            if (!archived && !window.confirm(`Archive this ${noun}? It will be hidden from lists but keeps its history.`)) return;
+            if (!archived && !window.confirm(confirm ?? `Archive this ${noun}? It will be hidden from lists but keeps its history.`)) return;
             const result = await action();
             setError(result.status === "error" ? (result.message ?? "") : "");
           })
         }
       >
-        {archived ? `Restore ${noun}` : "Archive"}
+        {archived ? (labels?.restore ?? `Restore ${noun}`) : (labels?.archive ?? "Archive")}
       </button>
     </>
   );

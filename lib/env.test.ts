@@ -85,4 +85,15 @@ describe("parseEnv", () => {
       expect(issues.some((issue) => issue.startsWith("APP_URL:"))).toBe(true);
     }
   });
+
+  it("allows the end-to-end email outbox only for a localhost app", () => {
+    expect(parseEnv({ APP_URL: "http://localhost:3100", EMAIL_TEST_OUTBOX: "/tmp/out.jsonl", ...required })).toMatchObject({
+      EMAIL_TEST_OUTBOX: "/tmp/out.jsonl",
+    });
+    for (const APP_URL of ["https://momentumdesk.app", "http://localhost.evil.com", undefined]) {
+      expect(() => parseEnv({ APP_URL, NODE_ENV: "production", EMAIL_TEST_OUTBOX: "/tmp/out.jsonl", ...required })).toThrow(
+        /EMAIL_TEST_OUTBOX: is only allowed when APP_URL is a localhost address/,
+      );
+    }
+  });
 });

@@ -107,6 +107,8 @@ test("an owner adds, edits, searches, archives and restores customers with conta
   await page.getByRole("link", { name: "Show archived" }).click();
   await page.getByRole("link", { name: "Acme Solar" }).click();
   await page.getByRole("button", { name: "Restore customer" }).click();
+  // Wait for the restore to land before navigating, or the save can be cut off.
+  await expect(page.getByRole("button", { name: "Archive" })).toBeVisible();
   await page.goto("/app/customers");
   await expect(page.getByRole("link", { name: "Acme Solar" })).toBeVisible();
 

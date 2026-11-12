@@ -11,6 +11,7 @@ export const PERMISSIONS = [
   "workspace:read",
   "customers:read", "customers:write",
   "sales:read", "sales:write",
+  "catalogue:read", "catalogue:write",
   "quotes:read", "quotes:write",
   "invoices:read", "invoices:write", "invoices:void",
   "payments:read", "payments:record",
@@ -28,10 +29,10 @@ const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
   admin: PERMISSIONS.filter((permission) => permission !== "ownership:manage"),
   sales: [
     "workspace:read", "customers:read", "customers:write",
-    "sales:read", "sales:write", "quotes:read", "quotes:write",
+    "sales:read", "sales:write", "catalogue:read", "quotes:read", "quotes:write",
   ],
   finance: [
-    "workspace:read", "customers:read", "customers:write",
+    "workspace:read", "customers:read", "customers:write", "catalogue:read",
     "invoices:read", "invoices:write", "payments:read", "payments:record",
     "collections:read", "collections:write",
   ],

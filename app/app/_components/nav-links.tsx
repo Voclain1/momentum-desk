@@ -17,9 +17,9 @@ const navItems: NavItem[] = [
   { label: "Leads", icon: "◉", href: "/app/leads" },
   { label: "Pipeline", icon: "◇", href: "/app/pipeline" },
   { label: "Tasks", icon: "☑", href: "/app/tasks" },
-  { label: "Catalogue", icon: "▦" },
-  { label: "Quotes", icon: "▱" },
-  { label: "Invoices", icon: "▤" },
+  { label: "Catalogue", icon: "▦", href: "/app/catalogue" },
+  { label: "Quotes", icon: "▱", href: "/app/quotes" },
+  { label: "Invoices", icon: "▤", href: "/app/invoices" },
   { label: "Payments", icon: "◎" },
   { label: "Collections", icon: "↗" },
 ];
