@@ -43,6 +43,15 @@ const envSchema = z
    * unless APP_URL is localhost, so it can never divert production email.
    */
   EMAIL_TEST_OUTBOX: z.string().optional(),
+  /**
+   * Encrypts payment providers' secret keys at rest (decision D35): 32
+   * random bytes, base64 (`openssl rand -base64 32`). Required to connect a
+   * provider; changing it makes stored provider keys unreadable.
+   */
+  PROVIDER_SECRETS_KEY: z
+    .string()
+    .refine((value) => Buffer.from(value, "base64").length === 32, { error: "must be 32 bytes, base64 (openssl rand -base64 32)" })
+    .optional(),
 })
   .refine((env) => !env.RESEND_API_KEY === !env.EMAIL_FROM, {
     error: "RESEND_API_KEY and EMAIL_FROM must be set together",
