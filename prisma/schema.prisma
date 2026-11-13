@@ -47,6 +47,7 @@ model User {
   paymentsRecorded Payment[]    @relation("PaymentRecordedBy")
   paymentsVoided   Payment[]    @relation("PaymentVoidedBy")
   invoiceLinks     InvoiceLink[] @relation("InvoiceLinkCreatedBy")
+  providerConnections ProviderConnection[] @relation("ProviderConnectedBy")
 
   @@map("user")
 }
@@ -159,6 +160,9 @@ model Organization {
   invoiceSettings InvoiceSettings?
   invoiceLinks    InvoiceLink[]
   invoiceEvents   InvoiceEvent[]
+  providerConnections ProviderConnection[]
+  paymentAttempts PaymentAttempt[]
+  providerEvents  ProviderEvent[]
 
   @@map("organization")
 }
@@ -810,6 +814,7 @@ model Invoice {
   allocations  PaymentAllocation[]
   links        InvoiceLink[]
   events       InvoiceEvent[]
+  attempts     PaymentAttempt[]
 
   @@unique([id, organizationId])
   @@unique([organizationId, number])
@@ -867,18 +872,25 @@ model Payment {
   reference      String?
   note           String?
   recordedById   String?
+  /// For provider payments: the connection, the provider's unique reference
+  /// (one payment per reference, D36) and the attempt it settles.
+  connectionId      String?
+  providerReference String?
+  attemptId         String?
   voidedAt       DateTime? @db.Timestamptz(3)
   voidReason     String?
   voidedById     String?
   createdAt      DateTime  @default(now()) @db.Timestamptz(3)
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connection   ProviderConnection? @relation(fields: [connectionId, organizationId], references: [id, organizationId], onDelete: NoAction)
   customer     Customer            @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
   recordedBy   User?               @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
   voidedBy     User?               @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
   allocations  PaymentAllocation[]
 
   @@unique([id, organizationId])
+  @@unique([organizationId, providerReference])
   @@index([organizationId, customerId, receivedOn])
   @@map("payment")
 }
@@ -953,4 +965,89 @@ model InvoiceEvent {
 
   @@index([organizationId, invoiceId, createdAt])
   @@map("invoiceEvent")
+}
+
+/// A workspace's own payment provider account (decisions D19, D35). Keys are
+/// encrypted at rest and never shown again. At most one active connection
+/// per provider; disconnecting keeps the row for history.
+model ProviderConnection {
+  id               String    @id @default(uuid(7))
+  organizationId   String
+  /// "paystack", "stripe" or "bachs".
+  provider         String
+  /// "test" or "live", from the key.
+  mode             String
+  secretKeyEnc     String
+  webhookSecretEnc String?
+  /// e.g. "sk_live_…1234", to recognise the key.
+  keyHint          String
+  /// Currencies the workspace takes through this provider.
+  currencies       String[]
+  connectedById    String?
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  disconnectedAt   DateTime? @db.Timestamptz(3)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectedBy  User?            @relation("ProviderConnectedBy", fields: [connectedById], references: [id], onDelete: SetNull)
+  attempts     PaymentAttempt[]
+  events       ProviderEvent[]
+  payments     Payment[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, provider])
+  @@map("providerConnection")
+}
+
+/// A customer starting to pay an invoice through a provider (D36). Its id is
+/// the reference the provider echoes back. Never itself proof of payment.
+model PaymentAttempt {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  invoiceId      String
+  connectionId   String
+  provider       String
+  /// What was owed when the attempt started, in the invoice's currency.
+  amountMinor    BigInt
+  currency       String
+  /// "created", "pending", "succeeded", "failed".
+  status         String    @default("created")
+  /// The provider's checkout or transaction id.
+  sessionId      String?
+  payerEmail     String?
+  paymentId      String?
+  failureReason  String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice            @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  connection   ProviderConnection @relation(fields: [connectionId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  @@unique([id, organizationId])
+  @@index([organizationId, invoiceId, createdAt])
+  @@index([organizationId, sessionId])
+  @@map("paymentAttempt")
+}
+
+/// Every webhook received, once per provider event (D36): an auditable,
+/// append-only history of what providers said and what was done with it.
+model ProviderEvent {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  connectionId   String
+  provider       String
+  eventId        String
+  type           String
+  attemptId      String?
+  /// "recorded", "already_recorded", "pending", "failed", "ignored" or "refused".
+  outcome        String
+  detail         String?
+  receivedAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connection   ProviderConnection @relation(fields: [connectionId, organizationId], references: [id, organizationId], onDelete: NoAction)
+
+  @@unique([connectionId, eventId])
+  @@index([organizationId, receivedAt])
+  @@map("providerEvent")
 }

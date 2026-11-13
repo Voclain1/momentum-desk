@@ -39,6 +39,21 @@ export function createPublicLinks(db: DbClient) {
       const organization = link && (await seller(link.organizationId));
       return link && organization ? { ...link, organization } : null;
     },
+    /**
+     * A provider connection for its webhook (/api/webhooks/{provider}/{id}).
+     * The id is not secret; the webhook is trusted only once its signature
+     * checks out with the connection's own secret (lib/payments/webhooks.ts).
+     */
+    async providerConnection(id: string) {
+      if (!/^[0-9a-f-]{36}$/.test(id)) return null;
+      return db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.provider_connection_id', ${id}, true)`;
+        return tx.providerConnection.findUnique({
+          where: { id },
+          select: { id: true, organizationId: true, provider: true, secretKeyEnc: true, webhookSecretEnc: true, disconnectedAt: true },
+        });
+      });
+    },
     async invoiceLink(token: string): Promise<(PublicLink & { invoiceId: string }) | null> {
       if (!TOKEN.test(token)) return null;
       const tokenHash = hashToken(token);
