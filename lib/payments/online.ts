@@ -5,6 +5,7 @@ import type { Invoice, PaymentAttempt, ProviderConnection } from "@/lib/generate
 import type { TenantData, TenantDb } from "@/lib/tenant/core";
 import type { PublicLink } from "@/lib/tenant/public";
 import { credentialsOf } from "./connections";
+import { refreshRefund } from "./refunds";
 import { type Http, type PaymentProvider, ProviderError, type ProviderPayment, providerFor, WebhookSignatureError } from "./providers";
 
 /**
@@ -313,6 +314,26 @@ export async function handleWebhook(
       }
     });
 
+  // Refund events: ask the provider about the refund and settle it (D37).
+  if (event.refundReference) {
+    const refund = await deps.data.transaction(connection.organizationId, (tenant) =>
+      tenant.refund.findFirst({ where: { providerReference: event.refundReference!, payment: { connectionId } } }),
+    );
+    if (!refund) {
+      await record("ignored", "No refund made from MomentumDesk matches this event; record it on the invoice if it was made elsewhere");
+      return { status: 200, outcome: "ignored" };
+    }
+    try {
+      const settled = await refreshRefund(deps, connection.organizationId, refund.id);
+      const outcome = settled?.status === "pending" ? "pending" : settled?.status === "failed" ? "failed" : "recorded";
+      await record(outcome, `Refund ${settled?.status ?? "unknown"}`);
+      return { status: 200, outcome };
+    } catch (error) {
+      if (error instanceof ProviderError) return { status: 503, outcome: "pending" };
+      throw error;
+    }
+  }
+
   if (!found.attempt) {
     await record("ignored", "No payment attempt matches this event");
     return { status: 200, outcome: "ignored" };
@@ -340,12 +361,21 @@ export async function onlineActivity(data: TenantData, organizationId: string, i
     : [];
   const paymentIds = attempts.flatMap((a) => (a.paymentId ? [a.paymentId] : []));
   const payments = paymentIds.length
-    ? await tenant.payment.findMany({ where: { id: { in: paymentIds } }, include: { allocations: { where: { voidedAt: null } } } })
+    ? await tenant.payment.findMany({
+        where: { id: { in: paymentIds } },
+        include: { allocations: { where: { voidedAt: null } }, refunds: { where: { status: { not: "failed" } } } },
+      })
     : [];
-  // Money received through an attempt beyond what was allocated: to refund (D36).
+  // Money received through an attempt beyond what was allocated or refunded: to refund (D36, D37).
   const unallocated = payments
     .filter((p) => !p.voidedAt)
-    .map((p) => ({ paymentId: p.id, source: p.source, currency: p.currency, amountMinor: p.amountMinor - p.allocations.reduce((sum, a) => sum + a.amountMinor, 0n) }))
+    .map((p) => ({
+      paymentId: p.id,
+      source: p.source,
+      currency: p.currency,
+      amountMinor:
+        p.amountMinor - p.allocations.reduce((sum, a) => sum + a.amountMinor, 0n) - p.refunds.reduce((sum, r) => sum + r.amountMinor, 0n),
+    }))
     .filter((p) => p.amountMinor > 0n);
   return { attempts, events, unallocated };
 }

@@ -75,7 +75,10 @@ export type AuditAction =
   | "invoice.links_revoked"
   | "invoice.emailed"
   | "provider.connected"
-  | "provider.disconnected";
+  | "provider.disconnected"
+  | "payment.refunded"
+  | "refund.succeeded"
+  | "refund.failed";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

@@ -139,3 +139,33 @@ describe("Bachs (to confirm in sandbox)", () => {
     expect(() => bachs.verifyWebhook(creds, body, new Headers({ "x-bachs-signature-v2": `t=${t},v1=${"0".repeat(64)}` }), now)).toThrow(WebhookSignatureError);
   });
 });
+
+describe("refunds through providers", () => {
+  it("Paystack refunds by transaction id in subunits and maps refund states", async () => {
+    const { http, calls } = fakeHttp((url) =>
+      url.endsWith("/refund") ? { status: 200, body: { data: { id: 55, status: "pending" } } } : { status: 200, body: { data: { id: 55, status: "processed" } } },
+    );
+    const creds = { secretKey: "sk_test_abc", webhookSecret: null };
+    expect(await paystack.refund!(creds, { providerReference: "paystack:99", amountMinor: 250000n, currency: "NGN", idempotencyKey: "r1" }, http)).toEqual({
+      refundReference: "paystack:55", status: "pending",
+    });
+    expect(JSON.parse(calls[0].body!)).toEqual({ transaction: "99", amount: "250000", currency: "NGN" });
+    expect(await paystack.fetchRefund!(creds, "paystack:55", http)).toEqual({ refundReference: "paystack:55", status: "succeeded" });
+    expect(calls[1].url).toBe("https://api.paystack.co/refund/55");
+  });
+
+  it("Stripe refunds a payment intent idempotently", async () => {
+    const { http, calls } = fakeHttp(() => ({ status: 200, body: { id: "re_1", status: "succeeded" } }));
+    const creds = { secretKey: "sk_test_abc", webhookSecret: "whsec" };
+    expect(await stripe.refund!(creds, { providerReference: "stripe:pi_9", amountMinor: 5000n, currency: "GBP", idempotencyKey: "refund-1" }, http)).toEqual({
+      refundReference: "stripe:re_1", status: "succeeded",
+    });
+    expect(Object.fromEntries(new URLSearchParams(calls[0].body))).toEqual({ payment_intent: "pi_9", amount: "5000" });
+    expect(calls[0].headers["Idempotency-Key"]).toBe("refund-1");
+  });
+
+  it("does not refund through Bachs until its API is confirmed", () => {
+    expect(bachs.refund).toBeUndefined();
+  });
+});
+

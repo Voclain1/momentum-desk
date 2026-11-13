@@ -21,6 +21,7 @@ test change.
 | Invoices: read/write | Yes | Yes | No | Yes | No |
 | Void invoices | Yes | Yes | No | No | No |
 | Payments: read / record manually | Yes | Yes | No | Yes | No |
+| Refund payments | Yes | Yes | No | No | No |
 | Collections: read/write | Yes | Yes | No | Yes | No |
 | Export business data | Yes | Yes | No | No | No |
 | Workspace settings (including tax rates), members, payment providers | Yes | Yes | No | No | No |

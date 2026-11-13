@@ -59,6 +59,16 @@ export interface ProviderWebhook {
   /** Our attempt reference or the provider's session id, to find the attempt. */
   reference: string | null;
   sessionId: string | null;
+  /** For refund events: the provider's refund id. */
+  refundReference?: string | null;
+}
+
+export type ProviderRefundStatus = "pending" | "succeeded" | "failed";
+
+export interface ProviderRefund {
+  /** The provider's refund id, prefixed with the provider key. */
+  refundReference: string;
+  status: ProviderRefundStatus;
 }
 
 export class ProviderError extends Error {
@@ -87,6 +97,16 @@ export interface PaymentProvider {
   createCheckout(credentials: ProviderCredentials, request: CheckoutRequest, http: Http): Promise<CheckoutResult>;
   /** Looks the payment up on the provider's API by our reference or its session id. */
   fetchPayment(credentials: ProviderCredentials, lookup: { reference: string; sessionId: string | null }, http: Http): Promise<ProviderPayment | null>;
+  /**
+   * Returns money from a payment through the provider (D37). Absent where
+   * refunds through the API are not supported yet; then refunds are recorded.
+   */
+  refund?(
+    credentials: ProviderCredentials,
+    request: { providerReference: string; amountMinor: bigint; currency: string; idempotencyKey: string },
+    http: Http,
+  ): Promise<ProviderRefund>;
+  fetchRefund?(credentials: ProviderCredentials, refundReference: string, http: Http): Promise<ProviderRefund | null>;
   /** Verifies the signature on the raw body; throws WebhookSignatureError if it does not match. */
   verifyWebhook(credentials: ProviderCredentials, rawBody: string, headers: Headers, now: Date): ProviderWebhook;
 }

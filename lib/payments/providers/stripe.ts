@@ -1,6 +1,9 @@
 import { createHmac } from "node:crypto";
 import { currencyExponent, isCurrencyCode } from "@/lib/money";
-import { type PaymentProvider, readJson, safeEqualHex, WebhookSignatureError } from "./types";
+import { type PaymentProvider, type ProviderRefund, readJson, safeEqualHex, WebhookSignatureError } from "./types";
+
+const refundStatus = (status: unknown): ProviderRefund["status"] =>
+  status === "succeeded" ? "succeeded" : status === "failed" || status === "canceled" ? "failed" : "pending";
 
 /**
  * Stripe (decision D19): UK, US, EU and other direct-signup countries, with
@@ -79,6 +82,30 @@ export const stripe: PaymentProvider = {
     };
   },
 
+  async refund({ secretKey }, { providerReference, amountMinor, idempotencyKey }, http) {
+    const intent = providerReference.replace(/^stripe:/, "");
+    const body = await readJson(
+      await http(`${API}/refunds`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": idempotencyKey },
+        body: form({ [intent.startsWith("pi_") ? "payment_intent" : "charge"]: intent, amount: amountMinor.toString() }),
+      }),
+      "Stripe",
+    );
+    if (typeof body.id !== "string") throw new Error("Stripe did not return a refund");
+    return { refundReference: `stripe:${body.id}`, status: refundStatus(body.status) };
+  },
+
+  async fetchRefund({ secretKey }, refundReference, http) {
+    const response = await http(`${API}/refunds/${encodeURIComponent(refundReference.replace(/^stripe:/, ""))}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    if (response.status === 404) return null;
+    const body = await readJson(response, "Stripe");
+    return { refundReference: `stripe:${body.id}`, status: refundStatus(body.status) };
+  },
+
   verifyWebhook({ webhookSecret }, rawBody, headers, now) {
     if (!webhookSecret) throw new WebhookSignatureError("Stripe webhook signing secret is not set");
     const parts = (headers.get("stripe-signature") ?? "").split(",").map((part) => part.split("=") as [string, string]);
@@ -88,9 +115,12 @@ export const stripe: PaymentProvider = {
     if (Math.abs(now.getTime() / 1000 - Number(timestamp)) > TOLERANCE_SECONDS) throw new WebhookSignatureError("Webhook timestamp is too old");
     const expected = createHmac("sha256", webhookSecret).update(`${timestamp}.${rawBody}`, "utf8").digest("hex");
     if (!signatures.some((signature) => safeEqualHex(signature, expected))) throw new WebhookSignatureError();
-    const event = JSON.parse(rawBody) as { id?: string; type?: string; data?: { object?: { id?: string; client_reference_id?: string | null; metadata?: Record<string, string> } } };
+    const event = JSON.parse(rawBody) as {
+      id?: string; type?: string; data?: { object?: { id?: string; object?: string; client_reference_id?: string | null; metadata?: Record<string, string> } };
+    };
     const object = event.data?.object;
     return {
+      refundReference: object?.object === "refund" && object.id ? `stripe:${object.id}` : null,
       eventId: event.id ?? "unknown",
       type: event.type ?? "unknown",
       reference: object?.client_reference_id ?? object?.metadata?.momentumdesk_reference ?? null,

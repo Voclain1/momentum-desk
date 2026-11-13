@@ -10,7 +10,7 @@ export const TENANT_MODELS = [
   "auditLog", "customer", "contact", "pipelineStage", "lead", "activity", "task", "taxRate", "product", "productPrice",
   "documentSequence", "quote", "quoteItem", "quoteLink", "quoteEvent", "quoteAcceptanceCode",
   "invoice", "invoiceItem", "payment", "paymentAllocation", "invoiceSettings", "invoiceLink", "invoiceEvent",
-  "providerConnection", "paymentAttempt", "providerEvent",
+  "providerConnection", "paymentAttempt", "providerEvent", "refund",
 ] as const;
 export type TenantModel = (typeof TENANT_MODELS)[number];
 

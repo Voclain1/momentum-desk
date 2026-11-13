@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import {
   type PaymentProvider,
+  type ProviderRefund,
   type ProviderPayment,
   readJson,
   safeEqualHex,
@@ -73,13 +74,39 @@ export const paystack: PaymentProvider = {
     };
   },
 
+  async refund({ secretKey }, { providerReference, amountMinor, currency }, http) {
+    const body = await readJson(
+      await http(`${API}/refund`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ transaction: providerReference.replace(/^paystack:/, ""), amount: amountMinor.toString(), currency }),
+      }),
+      "Paystack",
+    );
+    const data = body.data as { id?: number | string; status?: string } | undefined;
+    if (data?.id === undefined) throw new Error("Paystack did not return a refund");
+    return { refundReference: `paystack:${data.id}`, status: refundStatus(data.status) };
+  },
+
+  async fetchRefund({ secretKey }, refundReference, http) {
+    const response = await http(`${API}/refund/${encodeURIComponent(refundReference.replace(/^paystack:/, ""))}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    if (response.status === 404) return null;
+    const data = (await readJson(response, "Paystack")).data as { id?: number | string; status?: string } | undefined;
+    return data ? { refundReference: `paystack:${data.id ?? refundReference}`, status: refundStatus(data.status) } : null;
+  },
+
   verifyWebhook({ secretKey }, rawBody, headers) {
     const signature = headers.get("x-paystack-signature") ?? "";
     const expected = createHmac("sha512", secretKey).update(rawBody, "utf8").digest("hex");
     if (!safeEqualHex(signature, expected)) throw new WebhookSignatureError();
     const event = JSON.parse(rawBody) as { event?: string; data?: { id?: number | string; reference?: string } };
     const reference = event.data?.reference ?? null;
+    const isRefund = (event.event ?? "").startsWith("refund.");
     return {
+      refundReference: isRefund && event.data?.id !== undefined ? `paystack:${event.data.id}` : null,
       // Paystack sends no event id; the transaction id and event type identify a delivery.
       eventId: `${event.event ?? "unknown"}:${event.data?.id ?? reference ?? "none"}`,
       type: event.event ?? "unknown",
@@ -88,3 +115,10 @@ export const paystack: PaymentProvider = {
     };
   },
 };
+
+/** Paystack refund states: pending/processing → pending; processed → succeeded. */
+function refundStatus(status: string | undefined): ProviderRefund["status"] {
+  if (status === "processed") return "succeeded";
+  if (status === "failed" || status === "reversed") return "failed";
+  return "pending";
+}

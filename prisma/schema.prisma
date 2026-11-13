@@ -48,6 +48,7 @@ model User {
   paymentsVoided   Payment[]    @relation("PaymentVoidedBy")
   invoiceLinks     InvoiceLink[] @relation("InvoiceLinkCreatedBy")
   providerConnections ProviderConnection[] @relation("ProviderConnectedBy")
+  refundsRequested Refund[]     @relation("RefundRequestedBy")
 
   @@map("user")
 }
@@ -163,6 +164,7 @@ model Organization {
   providerConnections ProviderConnection[]
   paymentAttempts PaymentAttempt[]
   providerEvents  ProviderEvent[]
+  refunds         Refund[]
 
   @@map("organization")
 }
@@ -884,6 +886,7 @@ model Payment {
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   connection   ProviderConnection? @relation(fields: [connectionId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  refunds      Refund[]
   customer     Customer            @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: NoAction)
   recordedBy   User?               @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
   voidedBy     User?               @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
@@ -1050,4 +1053,36 @@ model ProviderEvent {
   @@unique([connectionId, eventId])
   @@index([organizationId, receivedAt])
   @@map("providerEvent")
+}
+
+/// Money returned to the customer from a payment (decision D37). Never
+/// deleted; a provider refund moves pending → succeeded or failed once.
+model Refund {
+  id                String    @id @default(uuid(7))
+  organizationId    String
+  paymentId         String
+  amountMinor       BigInt
+  currency          String
+  /// "provider" (through its API) or "manual" (paid back another way).
+  method            String
+  /// "pending", "succeeded" or "failed".
+  status            String
+  reason            String
+  /// The provider's refund id, for provider refunds.
+  providerReference String?
+  /// How much of the invoice allocation this refund took back (the rest came from unallocated excess).
+  allocationReducedMinor BigInt @default(0)
+  invoiceId         String?
+  requestedById     String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  completedAt       DateTime? @db.Timestamptz(3)
+  failureReason     String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment      Payment      @relation(fields: [paymentId, organizationId], references: [id, organizationId], onDelete: NoAction)
+  requestedBy  User?        @relation("RefundRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, providerReference])
+  @@index([organizationId, paymentId])
+  @@map("refund")
 }
