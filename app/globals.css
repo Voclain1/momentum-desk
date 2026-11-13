@@ -41,3 +41,6 @@
 .pay-form fieldset{display:grid;gap:8px;max-width:420px}
 .unallocated{margin:8px 17px}.unallocated p{margin:0}.online-attempts{padding:8px 17px;font-size:12px}.online-attempts summary{cursor:pointer;font-weight:700}
 .refund-failed{text-decoration:line-through;opacity:.7}
+.aging td small{display:block;color:var(--muted);font-size:10px}.aging .base-row td{border-top:1px solid var(--line);font-weight:700}.rates-used{padding:8px 17px 14px;font-size:11px;color:var(--muted)}.rates-used p{margin:2px 0}
+.collection-panel{padding:8px 17px}.collection-panel .row-buttons{flex-wrap:wrap}
+.checkbox-field{flex-direction:row;align-items:center;gap:8px}

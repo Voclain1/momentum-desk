@@ -20,6 +20,12 @@ import { connectProviderAction, disconnectProviderAction } from "./provider-acti
 import { ProvidersPanel } from "./providers-panel";
 import { QuoteNumbering } from "./quote-numbering";
 import { TaxRates } from "./tax-rates";
+import { FailedJobsPanel, RatesPanel, RemindersPanel } from "./collections-panels";
+import { reminderSettings } from "@/lib/reminders/service";
+import { listRates } from "@/lib/fx/rates";
+import { deadJobs } from "@/lib/jobs/admin";
+import { parseEnv } from "@/lib/env";
+import { todayIn } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Workspace settings — MomentumDesk" };
 
@@ -33,6 +39,12 @@ export default async function SettingsPage() {
     invoiceNumbering(tenantData, organization.id),
     invoiceSettings(tenantData, organization.id),
   ]);
+  const [reminders, rates, failed] = await Promise.all([
+    reminderSettings(tenantData, organization.id),
+    listRates(tenantData, organization.id, organization.baseCurrency),
+    canEdit ? deadJobs(tenantData, organization.id) : Promise.resolve([]),
+  ]);
+  const isoDay = (d: Date) => d.toISOString().slice(0, 10);
   const canSeeProviders = tenant.can("providers:manage");
   const connections = canSeeProviders ? await listConnections(tenantData, organization.id) : [];
   const h = await headers();
@@ -113,6 +125,17 @@ export default async function SettingsPage() {
           action={updateInvoiceSettingsAction}
           initial={{ paymentInstructions: invoiceDefaults.paymentInstructions ?? "", defaultDueDays: invoiceDefaults.defaultDueDays }}
         />
+        <RemindersPanel canEdit={canEdit} enabled={reminders.enabled} minGapDays={reminders.minGapDays} steps={reminders.steps.map((s) => ({ offsetDays: s.offsetDays, tone: s.tone }))} />
+        <RatesPanel
+          canEdit={canEdit}
+          base={organization.baseCurrency}
+          today={todayIn(organization.timezone)}
+          providerConfigured={Boolean(parseEnv(process.env).FX_PROVIDER_KEY)}
+          rates={rates.map((r) => ({
+            id: r.id, quote: r.quote, rate: r.rate.toString(), effectiveOn: isoDay(r.effectiveOn), source: r.source, enteredBy: r.enteredBy?.name ?? null,
+          }))}
+        />
+        <FailedJobsPanel jobs={failed.map((j) => ({ id: j.id, kind: j.kind, key: j.key, lastError: j.lastError, finishedAt: j.finishedAt ? j.finishedAt.toISOString().slice(0, 16).replace("T", " ") : null }))} />
       </section>
     </>
   );

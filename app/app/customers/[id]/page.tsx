@@ -14,6 +14,8 @@ import { RecordWork } from "../../work/record-work";
 import { setArchivedAction, updateCustomerAction } from "../actions";
 import { CustomerForm } from "../customer-form";
 import { ArchiveButton, Contacts } from "./customer-panels";
+import { StepButton } from "../../invoices/panels";
+import { setOptOutAction } from "../../receivables/actions";
 
 export const metadata: Metadata = { title: "Customer — MomentumDesk" };
 
@@ -64,6 +66,20 @@ export default async function CustomerPage({ params }: PageProps<"/app/customers
         Added {date.format(customer.createdAt)}
         {customer.createdBy ? ` by ${customer.createdBy.name}` : ""} · Updated {date.format(customer.updatedAt)}
       </p>
+      <div className="record-meta" role="group" aria-label="Payment reminders">
+        {customer.remindersOptedOutAt
+          ? `Payment reminders stopped on ${date.format(customer.remindersOptedOutAt)} ${customer.remindersOptOutBy === "customer" ? "by the customer" : "by your team"}.`
+          : "Payment reminders: sent when the workspace has them on."}
+        {canEdit ? (
+          <>
+            {" "}
+            <StepButton
+              action={setOptOutAction.bind(null, customer.id, !customer.remindersOptedOutAt)}
+              label={customer.remindersOptedOutAt ? "Restart reminders" : "Stop reminders"}
+            />
+          </>
+        ) : null}
+      </div>
       <section className="customer-layout">
         <div className="panel settings-panel wide">
           <CustomerForm
