@@ -6,6 +6,10 @@ import { todayIn } from "@/lib/dates";
 import { formatScaled } from "@/lib/documents/calc";
 import { RecordNotFoundError } from "@/lib/errors";
 import { getInvoice, invoiceStatus } from "@/lib/invoices/service";
+import { invoiceActivity } from "@/lib/invoices/sharing";
+import { onlineActivity } from "@/lib/payments/online";
+import { canRefundThroughProvider } from "@/lib/payments/refunds";
+import { PROVIDERS } from "@/lib/payments/providers";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
 import { PAYMENT_METHODS } from "@/lib/payments/service";
@@ -15,8 +19,12 @@ import { NoAccess } from "../../_components/no-access";
 import { newLine } from "../../quotes/builder-values";
 import { builderOptions } from "../../quotes/page-data";
 import { QuoteBuilder } from "../../quotes/quote-builder";
+import { SharePanel } from "../../quotes/share-panel";
 import {
+  createInvoiceLinkAction,
   deleteDraftAction,
+  emailInvoiceAction,
+  revokeInvoiceLinksAction,
   disputeAction,
   issueInvoiceAction,
   recordPaymentAction,
@@ -25,10 +33,12 @@ import {
   updateDraftAction,
   voidInvoiceAction,
   voidPaymentAction,
+  refreshRefundAction,
+  refundPaymentAction,
 } from "../actions";
 import { ConvertedDraftForm } from "../converted-draft";
 import { INVOICE_STATUS_LABELS, METHOD_LABELS } from "../labels";
-import { PaymentForm, ReasonForm, StepButton } from "../panels";
+import { PaymentForm, ReasonForm, RefundForm, StepButton } from "../panels";
 
 export const metadata: Metadata = { title: "Invoice — MomentumDesk" };
 
@@ -52,6 +62,12 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
   const date = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: organization.timezone });
   const day = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: "UTC" });
   const outstanding = invoice.totalMinor - invoice.paidMinor;
+  const activity = isDraft ? { links: [], events: [] } : await invoiceActivity(tenantData, organization.id, invoice.id);
+  const online = isDraft || !tenant.can("payments:read") ? null : await onlineActivity(tenantData, organization.id, invoice.id);
+  const providerName = (key: string) => PROVIDERS[key as keyof typeof PROVIDERS]?.name ?? key;
+  const canRefund = tenant.can("payments:refund");
+  const REFUND_STATUS: Record<string, string> = { pending: "processing", succeeded: "refunded", failed: "failed" };
+  const time = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeStyle: "short", timeZone: organization.timezone });
 
   const header = (
     <header className="topbar">
@@ -125,6 +141,36 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
         </ul>
       </section>
 
+      {!isDraft ? (
+        <p className="quote-download">
+          <a href={`/app/invoices/${invoice.id}/pdf`} className="link-button" download>Download PDF</a>
+        </p>
+      ) : null}
+      {invoice.status === "issued" && canEdit ? (
+        <SharePanel
+          email={emailInvoiceAction.bind(null, invoice.id, organization.name)}
+          createLink={createInvoiceLinkAction.bind(null, invoice.id)}
+          revoke={revokeInvoiceLinksAction.bind(null, invoice.id)}
+          recipientEmail={invoice.recipientEmail}
+          activeLinks={activity.links.filter((link) => !link.revokedAt).length}
+          stopsWhen="when revoked"
+        />
+      ) : null}
+      {activity.events.length ? (
+        <section className="panel contacts-panel" aria-label="Customer activity">
+          <div className="panel-heading"><div><h3>Customer activity</h3><p>Views of the invoice&apos;s link.</p></div></div>
+          <ul className="contact-list">
+            {activity.events.map((event) => (
+              <li key={event.id}>
+                <div>
+                  <strong>Viewed</strong>
+                  <small>{time.format(event.createdAt)}{event.ipAddress ? ` · from ${event.ipAddress}` : ""}</small>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {invoice.status !== "draft" && tenant.can("payments:read") ? (
         <section className="panel contacts-panel" aria-label="Payments">
           <div className="panel-heading">
@@ -145,14 +191,39 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
                       {payment.voidedAt ? <span className="pill">Void</span> : null}
                     </strong>
                     <small>
+                      {payment.source !== "manual" ? `${providerName(payment.source)} · ` : ""}
                       {METHOD_LABELS[payment.method as keyof typeof METHOD_LABELS] ?? payment.method} · received {day.format(payment.receivedOn)}
                       {payment.reference ? ` · ${payment.reference}` : ""}
                     </small>
-                    <small>Recorded {date.format(payment.createdAt)}{payment.recordedBy ? ` by ${payment.recordedBy.name}` : ""}</small>
+                    <small>
+                      Recorded {date.format(payment.createdAt)}
+                      {payment.recordedBy ? ` by ${payment.recordedBy.name}` : payment.source !== "manual" ? `, confirmed by ${providerName(payment.source)}` : ""}
+                    </small>
                     {payment.note ? <small>{payment.note}</small> : null}
                     {payment.voidedAt ? <small>Voided: {payment.voidReason}{payment.voidedBy ? ` (${payment.voidedBy.name})` : ""}</small> : null}
+                    {payment.refunds.map((refund) => (
+                      <small key={refund.id} className={refund.status === "failed" ? "refund-failed" : undefined}>
+                        Refund {show(refund.amountMinor)} {REFUND_STATUS[refund.status] ?? refund.status}
+                        {refund.method === "provider" ? ` through ${providerName(payment.source)}` : " (recorded)"} · {refund.reason}
+                        {refund.requestedBy ? ` · ${refund.requestedBy.name}` : ""}
+                        {refund.failureReason ? ` · ${refund.failureReason}` : ""}
+                        {refund.status === "pending" && canRefund ? (
+                          <> <StepButton action={refreshRefundAction.bind(null, refund.id, invoice.id)} label="Check status" /></>
+                        ) : null}
+                      </small>
+                    ))}
                   </div>
-                  {!payment.voidedAt && tenant.can("payments:record") ? (
+                  {!payment.voidedAt && canRefund && payment.amountMinor - payment.refunds.filter((r) => r.status !== "failed").reduce((sum, r) => sum + r.amountMinor, 0n) > 0n ? (
+                    <div className="row-buttons">
+                      <RefundForm
+                        action={refundPaymentAction.bind(null, payment.id, invoice.id)}
+                        currency={payment.currency}
+                        refundable={toDecimalString(money(payment.amountMinor - payment.refunds.filter((r) => r.status !== "failed").reduce((sum, r) => sum + r.amountMinor, 0n), payment.currency))}
+                        provider={canRefundThroughProvider(payment) ? providerName(payment.source) : null}
+                      />
+                    </div>
+                  ) : null}
+                  {!payment.voidedAt && payment.refunds.every((r) => r.status === "failed") && tenant.can("payments:record") ? (
                     <div className="row-buttons">
                       <ReasonForm
                         action={voidPaymentAction.bind(null, payment.id, invoice.id)}
@@ -166,6 +237,48 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
               );
             })}
           </ul>
+          {online?.unallocated.length ? (
+            <div role="alert" className="settings-message error unallocated">
+              {online.unallocated.map((u) => (
+                <div key={u.paymentId}>
+                  <p>
+                    {formatMoney(money(u.amountMinor, u.currency), organization.locale)} was received through {providerName(u.source)} beyond
+                    what this invoice owed. Refund it to the customer.
+                  </p>
+                  {canRefund ? (
+                    <RefundForm
+                      action={refundPaymentAction.bind(null, u.paymentId, invoice.id)}
+                      currency={u.currency}
+                      refundable={toDecimalString(money(u.amountMinor, u.currency))}
+                      provider={PROVIDERS[u.source as keyof typeof PROVIDERS]?.refund ? providerName(u.source) : null}
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {online?.attempts.length ? (
+            <details className="online-attempts">
+              <summary>Online payment attempts ({online.attempts.length})</summary>
+              <ul className="contact-list">
+                {online.attempts.map((attempt) => (
+                  <li key={attempt.id}>
+                    <div>
+                      <strong>{providerName(attempt.provider)} · {formatMoney(money(attempt.amountMinor, attempt.currency), organization.locale)}</strong>
+                      <small>
+                        {{ created: "Started", pending: "Waiting for the provider", succeeded: "Paid", failed: "Failed" }[attempt.status] ?? attempt.status}
+                        {" · "}{date.format(attempt.createdAt)}
+                      </small>
+                      {attempt.failureReason ? <small>{attempt.failureReason}</small> : null}
+                      {online.events.filter((e) => e.attemptId === attempt.id).map((e) => (
+                        <small key={e.id}>Webhook {e.type}: {e.outcome.replace("_", " ")}{e.detail ? ` (${e.detail})` : ""}</small>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           {invoice.status === "issued" && outstanding > 0n && tenant.can("payments:record") ? (
             <PaymentForm
               key={invoice.paidMinor.toString()}

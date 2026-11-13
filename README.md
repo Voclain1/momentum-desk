@@ -52,13 +52,24 @@ Done:
 - Quote PDF (`lib/documents/quote-pdf.ts`): drawn from the same copied snapshot as the web view (`lib/documents/present.ts`), A4, with the DejaVu Sans font embedded so every currency sign prints; long descriptions wrap and the table continues across pages. Staff download any revision (`/app/quotes/{id}/pdf`, drafts marked "DRAFT"); customers download from their link (`/q/{token}/pdf`), which stops with the link. Plain layout until the design system
 - Not yet: logo and brand colours on documents (with the design system), quote-to-invoice conversion (start of M3)
 
-## M3 (invoicing): in progress
+## M3 (invoicing): done, except the visual design
 
 - Decisions D30–D34 (`docs/decisions.md`): numbers at issue without gaps, issued invoices never change (void with a reason, then reissue), manual payments in the invoice currency without overpayment, accepted quotes convert once and verbatim, base-currency reporting in M5
 - Invoices (`/app/invoices`, `lib/invoices`): direct invoices with the same builder as quotes, or from an accepted quote ("Invoice this quote", or the list on the new-invoice page for finance), copying its lines and amounts exactly. Issuing assigns the next number and copies the payment instructions from Settings. Status is derived: issued, viewed, partly paid, paid, overdue, disputed, void. Disputes need a reason; voiding needs `invoices:void` (owner, admin), a reason and no valid payments. Owner, admin and finance; sales and member cannot see invoices
 - Payments (`lib/payments`): recorded by owner, admin or finance in the invoice's currency, never above what is owed and never dated in the future; voided with a reason, never deleted. The database keeps each invoice's paid and owed amounts from valid allocations and refuses overpayment, currency or customer mismatches, and payments to drafts or void invoices
 - Settings: invoice numbering, payment instructions and default days until due
-- Next: public invoice page and PDF
+- Sharing and the customer's invoice (`/i/{token}`, `lib/invoices/sharing.ts`, `lib/invoices/public.ts`): staff email an issued invoice to its recipient or create a link (shown once, stored as a hash) and can revoke links. The customer, without an account, sees what is owed and by when, payments made, "paid in full" or "cancelled", and how to pay; views are recorded (first view on the invoice, then per half hour) and listed on the invoice page
+- Invoice PDF (`lib/documents/invoice-pdf.ts`): the shared document layout with paid, balance due, how to pay, and DRAFT / VOID stamps; staff download from `/app/invoices/{id}/pdf`, customers from `/i/{token}/pdf`
+- Later: online payment through providers (M4), reminders and collections (M5)
+
+## M4 (payments): in progress
+
+- D19 (owner): Paystack, Stripe and Bachs, for pilots in Nigeria, Ghana, Kenya, South Africa and the UK/US/EU; D35–D36 proposed (`docs/decisions.md`)
+- Provider adapters (`lib/payments/providers`): one interface for checkout, payment lookup and webhook signatures; Paystack and Stripe follow their documented APIs, Bachs is to be confirmed in its sandbox (`docs/go-live.md`)
+- Connections (Settings → Payment providers, owners and admins): each workspace's own account; keys encrypted with `PROVIDER_SECRETS_KEY`, shown once as a hint; a webhook URL per connection
+- Online payment: customers pay from the invoice's public link through the provider's checkout. Signed webhooks (`/api/webhooks/{provider}/{connection}`) and the customer's return both make our server ask the provider's API; the payment is recorded once per provider reference, however many deliveries arrive; amounts above what was owed are kept and flagged for refund; mismatched or forged events are refused
+- Refunds (D37, `lib/payments/refunds.ts`, owners and admins): from any payment on the invoice page, through Paystack or Stripe, or recorded when the business paid the customer back another way (and for Bachs for now). A refund first takes back money received beyond what was owed, then reopens what the invoice owes; the database refuses refunds beyond what is left of a payment. Provider refunds are confirmed by the provider's webhook or "Check status"; a failed one gives the amounts back. A refunded payment can no longer be voided as a mistake
+- Tests run against a local stand-in for the providers (`e2e/mock-providers.mjs`, `PAYMENTS_TEST_API`, localhost only)
 
 End-to-end tests read emails from `e2e/.outbox/emails.jsonl` (`EMAIL_TEST_OUTBOX`, set by `playwright.config.ts`); the app refuses that setting unless `APP_URL` is localhost.
 

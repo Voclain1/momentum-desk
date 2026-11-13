@@ -43,6 +43,20 @@ const envSchema = z
    * unless APP_URL is localhost, so it can never divert production email.
    */
   EMAIL_TEST_OUTBOX: z.string().optional(),
+  /**
+   * End-to-end tests only: send payment provider API calls to this local
+   * stand-in instead of the real providers. Refused unless APP_URL is localhost.
+   */
+  PAYMENTS_TEST_API: z.url().optional(),
+  /**
+   * Encrypts payment providers' secret keys at rest (decision D35): 32
+   * random bytes, base64 (`openssl rand -base64 32`). Required to connect a
+   * provider; changing it makes stored provider keys unreadable.
+   */
+  PROVIDER_SECRETS_KEY: z
+    .string()
+    .refine((value) => Buffer.from(value, "base64").length === 32, { error: "must be 32 bytes, base64 (openssl rand -base64 32)" })
+    .optional(),
 })
   .refine((env) => !env.RESEND_API_KEY === !env.EMAIL_FROM, {
     error: "RESEND_API_KEY and EMAIL_FROM must be set together",
@@ -51,6 +65,10 @@ const envSchema = z
   .refine((env) => !env.EMAIL_TEST_OUTBOX || isLocalUrl(env.APP_URL), {
     error: "is only allowed when APP_URL is a localhost address",
     path: ["EMAIL_TEST_OUTBOX"],
+  })
+  .refine((env) => !env.PAYMENTS_TEST_API || (isLocalUrl(env.APP_URL) && isLocalUrl(env.PAYMENTS_TEST_API)), {
+    error: "is only allowed for a localhost app and a localhost stand-in",
+    path: ["PAYMENTS_TEST_API"],
   });
 
 /** Whether a URL points at this machine (http://localhost:3000, http://127.0.0.1). */

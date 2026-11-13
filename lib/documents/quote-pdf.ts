@@ -90,13 +90,39 @@ export function wrap(text: string, font: PDFFont, size: number, width: number): 
   return out;
 }
 
-export async function renderQuotePdf(quote: QuotePdfData, { seller, locale }: { seller: string; locale: string }): Promise<Uint8Array> {
+/** What a document's PDF shows besides the shared parts (lines, totals, notes, terms). */
+export interface PdfLayout {
+  title: string;
+  /** A warning in the top right, e.g. "DRAFT — not sent to the customer". */
+  stamp?: string;
+  facts: [string, string][];
+  /** Rows after the total, e.g. paid and balance due; the flag marks a grand row. */
+  extraTotals?: [string, string, boolean][];
+  /** Sections before notes and terms, e.g. how to pay. */
+  sections?: [string, string | null][];
+  /** A closing line, e.g. "Accepted on …". */
+  closing?: string;
+}
+
+export type DocumentPdfData = Omit<QuotePdfData, "number" | "revision" | "status" | "expiresOn" | "acceptedAt" | "issuedOn">;
+
+export async function renderQuotePdf(quote: QuotePdfData, options: { seller: string; locale: string }): Promise<Uint8Array> {
+  const { locale } = options;
+  return renderDocumentPdf(quote, {
+    title: `Quote ${quote.number}${quote.revision > 1 ? ` (revision ${quote.revision})` : ""}`,
+    stamp: quote.status === "draft" ? "DRAFT — not sent to the customer" : undefined,
+    facts: [["Issued", dateText(quote.issuedOn, locale)], ["Valid until", dateText(quote.expiresOn, locale)]],
+    closing: quote.status === "accepted" && quote.acceptedAt ? `Accepted on ${dateText(quote.acceptedAt, locale)}.` : undefined,
+  }, options);
+}
+
+export async function renderDocumentPdf(quote: DocumentPdfData, layout: PdfLayout, { seller, locale }: { seller: string; locale: string }): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
   const [regularBytes, boldBytes] = await loadFonts();
   const regular = await pdf.embedFont(regularBytes, { subset: true });
   const bold = await pdf.embedFont(boldBytes, { subset: true });
-  const title = `Quote ${quote.number}${quote.revision > 1 ? ` (revision ${quote.revision})` : ""}`;
+  const { title } = layout;
   pdf.setTitle(`${title} — ${seller}`);
   pdf.setAuthor(seller);
   pdf.setCreator("MomentumDesk");
@@ -126,17 +152,13 @@ export async function renderQuotePdf(quote: QuotePdfData, { seller, locale }: { 
   };
 
   // Header: seller and title on the left, dates on the right.
-  if (quote.status === "draft") {
-    text("DRAFT — not sent to the customer", A4.width - MARGIN, y, { size: 8, font: bold, color: rgb(0.75, 0.33, 0.33), align: "right" });
+  if (layout.stamp) {
+    text(layout.stamp, A4.width - MARGIN, y, { size: 8, font: bold, color: rgb(0.75, 0.33, 0.33), align: "right" });
   }
   text(seller, MARGIN, y, { size: 11, font: bold });
   y -= 22;
   text(title, MARGIN, y, { size: 16, font: bold });
-  const facts: [string, string][] = [
-    ["Issued", dateText(quote.issuedOn, locale)],
-    ["Valid until", dateText(quote.expiresOn, locale)],
-    ["Currency", quote.currency],
-  ];
+  const facts: [string, string][] = [...layout.facts, ["Currency", quote.currency]];
   // Labels right-aligned against the widest value, so long dates never collide.
   const valueWidth = Math.max(...facts.map(([, value]) => bold.widthOfTextAtSize(value, 9)));
   facts.forEach(([label, value], index) => {
@@ -228,6 +250,7 @@ export async function renderQuotePdf(quote: QuotePdfData, { seller, locale }: { 
     ...(quote.discountMinor > 0n ? [["Discounts included", show(quote.discountMinor), false] as [string, string, boolean]] : []),
     ...taxLinesOf(quote.taxLines).map((tax) => [taxLineLabel(tax, inclusive, show), show(BigInt(tax.taxMinor)), false] as [string, string, boolean]),
     [`Total (${quote.currency})`, show(quote.totalMinor), true],
+    ...(layout.extraTotals ?? []),
   ];
   ensure(totals.length * 15 + 20);
   y -= 8;
@@ -242,7 +265,7 @@ export async function renderQuotePdf(quote: QuotePdfData, { seller, locale }: { 
   }
 
   // Notes and terms.
-  for (const [heading, body] of [["NOTES", quote.notes], ["TERMS", quote.terms]] as const) {
+  for (const [heading, body] of [...(layout.sections ?? []), ["NOTES", quote.notes], ["TERMS", quote.terms]] as [string, string | null][]) {
     if (!body) continue;
     y -= 10;
     ensure(30);
@@ -255,10 +278,10 @@ export async function renderQuotePdf(quote: QuotePdfData, { seller, locale }: { 
     }
   }
 
-  if (quote.status === "accepted" && quote.acceptedAt) {
+  if (layout.closing) {
     y -= 10;
     ensure(20);
-    text(`Accepted on ${dateText(quote.acceptedAt, locale)}.`, MARGIN, y, { font: bold, color: rgb(0.15, 0.51, 0.41) });
+    text(layout.closing, MARGIN, y, { font: bold, color: rgb(0.15, 0.51, 0.41) });
   }
 
   // Footer on every page.

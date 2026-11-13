@@ -40,7 +40,7 @@ describe("hasPermission", () => {
   });
 
   it("keeps sensitive actions to owners and admins", () => {
-    for (const permission of ["catalogue:write", "invoices:void", "data:export", "providers:manage", "members:manage", "settings:write"] as const) {
+    for (const permission of ["catalogue:write", "invoices:void", "payments:refund", "data:export", "providers:manage", "members:manage", "settings:write"] as const) {
       expect(["owner", "admin", "sales", "finance", "member"].filter((role) => hasPermission(role, permission))).toEqual([
         "owner",
         "admin",

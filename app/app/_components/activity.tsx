@@ -64,6 +64,14 @@ export const LABELS: Record<AuditAction, string> = {
   "payment.recorded": "recorded a payment",
   "payment.voided": "voided a payment",
   "invoice.settings_updated": "changed invoice settings",
+  "invoice.link_created": "created an invoice link",
+  "invoice.links_revoked": "revoked invoice links",
+  "invoice.emailed": "emailed an invoice",
+  "provider.connected": "connected a payment provider",
+  "provider.disconnected": "disconnected a payment provider",
+  "payment.refunded": "refunded a payment",
+  "refund.succeeded": "confirmed a refund",
+  "refund.failed": "reported a failed refund",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */
@@ -92,7 +100,7 @@ export async function RecentActivity({ tenant }: { tenant: Tenant }) {
         {entries.map((entry) => (
           <li key={entry.id}>
             <span>
-              <strong>{entry.actor?.name ?? (entry.action === "quote.accepted" || entry.action === "quote.rejected" ? "A customer" : "System")}</strong>{" "}
+              <strong>{entry.actor?.name ?? (entry.action === "quote.accepted" || entry.action === "quote.rejected" ? "A customer" : entry.action === "payment.recorded" ? "A customer" : entry.action.startsWith("refund.") ? "The payment provider" : "System")}</strong>{" "}
               {LABELS[entry.action as AuditAction] ?? entry.action}
             </span>
             <time dateTime={entry.createdAt.toISOString()}>{time.format(entry.createdAt)}</time>

@@ -111,6 +111,26 @@ test("lead → quote → customer accepts → invoice → partly paid → paid (
   const invoice = page.getByRole("article", { name: "Invoice INV-0001" });
   await expect(invoice).toContainText("Test Bank · Sun Power Ltd · 0123456789");
   await expect(invoice).toContainText("₦370,000.00");
+  const invoiceUrl = page.url();
+  const staffPdf = await page.request.get(`${invoiceUrl}/pdf`);
+  expect(staffPdf.status()).toBe(200);
+  expect(staffPdf.headers()["content-disposition"]).toContain('filename="INV-0001.pdf"');
+
+  // The customer gets the invoice by email and opens it without an account.
+  await page.getByRole("button", { name: `Email to ${customerEmail}` }).click();
+  await expect(page.getByText(`Invoice emailed to ${customerEmail}.`)).toBeVisible();
+  const invoiceEmail = await lastEmailTo(customerEmail, /Invoice INV-0001 from Sun Power/);
+  expect(invoiceEmail.text).toContain("₦370,000.00");
+  const invoiceLink = /(http:\/\/localhost:\d+\/i\/[A-Za-z0-9_-]{43})/.exec(invoiceEmail.text)![1];
+  await customer.goto(invoiceLink);
+  await expect(customer.getByText(/₦370,000\.00 due by/)).toBeVisible();
+  await expect(customer.getByRole("article", { name: "Invoice INV-0001" })).toContainText("Test Bank · Sun Power Ltd · 0123456789");
+  const customerPdf = await customer.request.get(`${invoiceLink}/pdf`);
+  expect(customerPdf.status()).toBe(200);
+  expect((await customerPdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
+  await page.reload();
+  await expect(pill(page)).toHaveText("Viewed");
+  await expect(page.getByRole("region", { name: "Customer activity" })).toContainText("Viewed");
 
   // Partial payment, a refused overpayment, then the rest.
   const payments = page.getByRole("region", { name: "Payments" });
@@ -127,6 +147,8 @@ test("lead → quote → customer accepts → invoice → partly paid → paid (
   await payments.getByRole("button", { name: "Record payment" }).click();
   await expect(pill(page)).toHaveText("Paid");
   await expect(payments.getByRole("button", { name: "Record payment" })).toHaveCount(0);
+  await customer.goto(invoiceLink);
+  await expect(customer.getByText("Paid in full. Thank you.")).toBeVisible();
 
   // A bounced payment is voided; the balance returns.
   await payments.getByRole("listitem").filter({ hasText: "₦270,000.00" }).getByRole("button", { name: "Void" }).click();
@@ -169,6 +191,7 @@ test("a direct invoice in another currency is issued and voided; roles are enfor
   await expect(finance.getByRole("button", { name: "Void invoice" })).toHaveCount(0);
   await expect(finance.getByRole("region", { name: "Payments" }).getByRole("button", { name: "Record payment" })).toBeVisible();
   const sales = await joinAs(browser, ownerEmail, "sales", "Sam Sales");
+  expect((await sales.request.get(`${invoiceUrl}/pdf`)).status()).toBe(403);
   for (const path of ["/app/invoices", invoiceUrl]) {
     await sales.goto(path);
     await expect(sales.getByText("Your role does not include access to this page.")).toBeVisible();

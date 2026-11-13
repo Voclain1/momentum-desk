@@ -14,7 +14,7 @@ export const PERMISSIONS = [
   "catalogue:read", "catalogue:write",
   "quotes:read", "quotes:write",
   "invoices:read", "invoices:write", "invoices:void",
-  "payments:read", "payments:record",
+  "payments:read", "payments:record", "payments:refund",
   "collections:read", "collections:write",
   "data:export", "settings:write", "members:manage",
   "providers:manage", "ownership:manage",

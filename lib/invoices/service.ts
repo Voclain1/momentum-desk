@@ -125,7 +125,15 @@ export async function getInvoice(data: TenantData, organizationId: string, id: s
       voidedBy: { select: { name: true } },
       allocations: {
         orderBy: { createdAt: "asc" },
-        include: { payment: { include: { recordedBy: { select: { name: true } }, voidedBy: { select: { name: true } } } } },
+        include: {
+          payment: {
+            include: {
+              recordedBy: { select: { name: true } },
+              voidedBy: { select: { name: true } },
+              refunds: { orderBy: { createdAt: "asc" }, include: { requestedBy: { select: { name: true } } } },
+            },
+          },
+        },
       },
     },
   });

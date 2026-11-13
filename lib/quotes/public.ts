@@ -16,7 +16,7 @@ import type { PublicLink } from "@/lib/tenant/public";
 
 export interface PublicDeps {
   data: TenantData;
-  links: { quoteLink(token: string): Promise<PublicLink | null> };
+  links: { quoteLink(token: string): Promise<(PublicLink & { quoteId: string }) | null> };
   email: EmailSender;
   now?: () => Date;
 }
@@ -60,10 +60,10 @@ export function contentHash(quote: Quote & { items: QuoteItem[] }): string {
 
 const codeHash = (codeId: string, code: string) => createHash("sha256").update(`${codeId}:${code}`).digest("hex");
 
-type Loaded = { link: PublicLink; quote: Quote & { items: QuoteItem[] }; today: string };
+type Loaded = { link: PublicLink & { quoteId: string }; quote: Quote & { items: QuoteItem[] }; today: string };
 
 /** Resolves a token to its live quote, or null for anything that should look like "no such link". */
-async function load(deps: PublicDeps, tenant: TenantDb, link: PublicLink, now: Date): Promise<Loaded | null> {
+async function load(deps: PublicDeps, tenant: TenantDb, link: PublicLink & { quoteId: string }, now: Date): Promise<Loaded | null> {
   const quote = await tenant.quote.findUnique({ where: { id: link.quoteId }, include: { items: { orderBy: { position: "asc" } } } });
   if (!quote || quote.status === "draft") return null;
   // A newer sent revision replaces this one for the customer whatever its own
