@@ -53,7 +53,7 @@ describe("Paystack", () => {
     const body = JSON.stringify({ event: "charge.success", data: { id: 99, reference: "att_123" } });
     const sign = (key: string, text: string) => createHmac("sha512", key).update(text).digest("hex");
     expect(paystack.verifyWebhook(creds, body, new Headers({ "x-paystack-signature": sign("sk_test_abc", body) }), now)).toEqual({
-      eventId: "charge.success:99", type: "charge.success", reference: "att_123", sessionId: "att_123",
+      eventId: "charge.success:99", type: "charge.success", reference: "att_123", sessionId: "att_123", refundReference: null,
     });
     for (const headers of [
       new Headers({ "x-paystack-signature": sign("sk_test_other", body) }),
@@ -101,7 +101,9 @@ describe("Stripe", () => {
     const body = JSON.stringify({ id: "evt_1", type: "checkout.session.completed", data: { object: { id: "cs_1", client_reference_id: "att_123" } } });
     const sign = (secret: string, ts: string) => createHmac("sha256", secret).update(`${ts}.${body}`).digest("hex");
     const ok = new Headers({ "stripe-signature": `t=${t},v1=deadbeef,v1=${sign("whsec_test", t)}` });
-    expect(stripe.verifyWebhook(creds, body, ok, now)).toEqual({ eventId: "evt_1", type: "checkout.session.completed", reference: "att_123", sessionId: "cs_1" });
+    expect(stripe.verifyWebhook(creds, body, ok, now)).toEqual({
+      eventId: "evt_1", type: "checkout.session.completed", reference: "att_123", sessionId: "cs_1", refundReference: null,
+    });
     const old = String(Number(t) - 301);
     expect(() => stripe.verifyWebhook(creds, body, new Headers({ "stripe-signature": `t=${old},v1=${sign("whsec_test", old)}` }), now)).toThrow(/too old/);
     expect(() => stripe.verifyWebhook(creds, body, new Headers({ "stripe-signature": `t=${t},v1=${sign("whsec_other", t)}` }), now)).toThrow(WebhookSignatureError);
