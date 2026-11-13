@@ -19,7 +19,8 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "test:e2e": "playwright test",
-    "vercel-build": "node scripts/vercel-build.mjs"
+    "vercel-build": "node scripts/vercel-build.mjs",
+    "worker": "tsx --tsconfig tsconfig.json scripts/worker.ts"
   },
   "dependencies": {
     "@better-auth/core": "1.7.7",
@@ -33,6 +34,7 @@
     "pg": "^8.23.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {

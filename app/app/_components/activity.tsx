@@ -72,6 +72,7 @@ export const LABELS: Record<AuditAction, string> = {
   "payment.refunded": "refunded a payment",
   "refund.succeeded": "confirmed a refund",
   "refund.failed": "reported a failed refund",
+  "job.retried": "retried failed background work",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

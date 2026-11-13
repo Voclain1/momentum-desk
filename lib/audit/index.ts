@@ -78,7 +78,8 @@ export type AuditAction =
   | "provider.disconnected"
   | "payment.refunded"
   | "refund.succeeded"
-  | "refund.failed";
+  | "refund.failed"
+  | "job.retried";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

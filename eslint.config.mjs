@@ -16,6 +16,11 @@ const eslintConfig = defineConfig([
       // The workspace record itself (the tenant root); re-checks membership
       // inside its own transaction.
       "lib/workspaces/**",
+      // The background job queue (D18): claims due jobs across workspaces;
+      // each job then runs as a tenant transaction for its own workspace.
+      "lib/jobs/queue-core.ts",
+      // The worker process's entry point: wires the database into the queue.
+      "scripts/worker.ts",
       // Health check: a bare SELECT 1, no organization data.
       "lib/observability/health.ts",
       "test/**",
