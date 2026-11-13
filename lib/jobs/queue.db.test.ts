@@ -148,7 +148,9 @@ describe("the daily jobs", () => {
     await issueInvoice(data, { organizationId, userId }, draft.id, 1);
     const requests: string[] = [];
     const handlers = createJobHandlers({
-      organization: async () => ({ baseCurrency: "NGN", timezone: "Africa/Lagos" }),
+      organization: async () => ({ name: "Acme", baseCurrency: "NGN", timezone: "Africa/Lagos", locale: "en-NG" }),
+      email: { send: async () => {} },
+      appUrl: "https://app.test",
       fxProviderKey: "test-app-id-123",
       http: async (url) => {
         requests.push(url);
@@ -156,7 +158,7 @@ describe("the daily jobs", () => {
       },
     });
     await scheduleDaily(deps(handlers, DAILY_JOBS));
-    expect(await runDueJobs(deps(handlers, DAILY_JOBS))).toEqual({ ran: 2, succeeded: 2, retried: 0, dead: 0 });
+    expect(await runDueJobs(deps(handlers, DAILY_JOBS))).toEqual({ ran: 3, succeeded: 3, retried: 0, dead: 0 });
     expect(requests).toEqual(["https://openexchangerates.org/api/latest.json?app_id=test-app-id-123"]);
     const [rate] = await data.scoped(organizationId).exchangeRate.findMany();
     expect([rate.base, rate.quote, rate.rate.toString(), rate.source]).toEqual(["NGN", "USD", "1580.5", "openexchangerates"]);

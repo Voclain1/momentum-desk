@@ -79,6 +79,9 @@ export const LABELS: Record<AuditAction, string> = {
   "promise.added": "recorded a promise to pay",
   "promise.cancelled": "cancelled a promise to pay",
   "promise.resolved": "closed a promise to pay",
+  "reminders.settings_updated": "changed payment reminders",
+  "reminders.opted_out": "stopped payment reminders for a customer",
+  "reminders.opted_in": "restarted payment reminders for a customer",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */
@@ -107,7 +110,7 @@ export async function RecentActivity({ tenant }: { tenant: Tenant }) {
         {entries.map((entry) => (
           <li key={entry.id}>
             <span>
-              <strong>{entry.actor?.name ?? (entry.action === "quote.accepted" || entry.action === "quote.rejected" ? "A customer" : entry.action === "payment.recorded" ? "A customer" : entry.action.startsWith("refund.") ? "The payment provider" : "System")}</strong>{" "}
+              <strong>{entry.actor?.name ?? (entry.action === "quote.accepted" || entry.action === "quote.rejected" ? "A customer" : entry.action === "payment.recorded" || entry.action === "reminders.opted_out" ? "A customer" : entry.action.startsWith("refund.") ? "The payment provider" : "System")}</strong>{" "}
               {LABELS[entry.action as AuditAction] ?? entry.action}
             </span>
             <time dateTime={entry.createdAt.toISOString()}>{time.format(entry.createdAt)}</time>

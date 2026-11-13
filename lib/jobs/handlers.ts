@@ -1,6 +1,9 @@
 import { fetchOpenExchangeRates, refreshRates } from "@/lib/fx/provider";
 import type { Http } from "@/lib/payments/providers";
+import type { EmailSender } from "@/lib/email";
 import { reviewReceivables } from "@/lib/receivables/service";
+import { planReminders, sendReminder } from "@/lib/reminders/service";
+import { todayIn } from "@/lib/dates";
 import type { JobHandler } from "./worker";
 
 /**
@@ -11,7 +14,10 @@ import type { JobHandler } from "./worker";
 
 export interface HandlerDeps {
   /** A workspace's settings (the organization table is not tenant data). */
-  organization(id: string): Promise<{ baseCurrency: string; timezone: string } | null>;
+  organization(id: string): Promise<{ name: string; baseCurrency: string; timezone: string; locale: string } | null>;
+  email: EmailSender;
+  /** The app's public origin, for links in reminders (APP_URL). */
+  appUrl: string | undefined;
   /** Open Exchange Rates app id (FX_PROVIDER_KEY); without it only staff rates exist. */
   fxProviderKey: string | undefined;
   http: Http;
@@ -40,8 +46,27 @@ export function createJobHandlers(deps: HandlerDeps): Record<string, JobHandler>
     "receivables.review": async ({ data, job }) => {
       await reviewReceivables(data, job.organizationId, dayOf(job.payload));
     },
+    /** Plans the day's reminders; runs after the review so promises and pauses are current. */
+    "reminders.run": async ({ data, job, now }) => {
+      await reviewReceivables(data, job.organizationId, dayOf(job.payload));
+      await planReminders(data, job.organizationId, dayOf(job.payload), now);
+    },
+    /** Sends one reminder after checking again that it should go out. */
+    "reminders.send": async ({ data, job, now }) => {
+      const organization = await deps.organization(job.organizationId);
+      if (!organization) return;
+      if (!deps.appUrl) throw new Error("APP_URL is not set, so reminder links cannot be made");
+      const executionId = (job.payload as { executionId?: string } | null)?.executionId;
+      if (!executionId) throw new Error("Job payload has no reminder");
+      await sendReminder(data, job.organizationId, executionId, todayIn(organization.timezone, now), {
+        email: deps.email,
+        appUrl: deps.appUrl,
+        seller: organization.name,
+        locale: organization.locale,
+      }, now);
+    },
   };
 }
 
 /** Job kinds enqueued once a day for every workspace. */
-export const DAILY_JOBS = ["fx.refresh", "receivables.review"];
+export const DAILY_JOBS = ["fx.refresh", "receivables.review", "reminders.run"];

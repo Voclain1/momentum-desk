@@ -5,6 +5,7 @@
  */
 import { hostname } from "node:os";
 import { db } from "@/lib/db";
+import { defaultEmailSender } from "@/lib/email";
 import { parseEnv } from "@/lib/env";
 import { createJobHandlers, DAILY_JOBS } from "@/lib/jobs/handlers";
 import { providerHttp } from "@/lib/payments/http";
@@ -13,7 +14,9 @@ import { tenantData } from "@/lib/tenant";
 
 const env = parseEnv(process.env);
 const JOB_HANDLERS = createJobHandlers({
-  organization: (id) => db.organization.findUnique({ where: { id }, select: { baseCurrency: true, timezone: true } }),
+  organization: (id) => db.organization.findUnique({ where: { id }, select: { name: true, baseCurrency: true, timezone: true, locale: true } }),
+  email: defaultEmailSender(env),
+  appUrl: env.APP_URL,
   fxProviderKey: env.FX_PROVIDER_KEY,
   http: providerHttp(env),
 });

@@ -85,7 +85,10 @@ export type AuditAction =
   | "collection.note_added"
   | "promise.added"
   | "promise.cancelled"
-  | "promise.resolved";
+  | "promise.resolved"
+  | "reminders.settings_updated"
+  | "reminders.opted_out"
+  | "reminders.opted_in";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

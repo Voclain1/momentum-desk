@@ -70,7 +70,7 @@ export async function scheduleDaily(deps: WorkerDeps) {
       const timezone = (await deps.db.organization.findUnique({ where: { id: organizationId }, select: { timezone: true } }))?.timezone ?? "UTC";
       const day = todayIn(timezone, now);
       for (const kind of deps.daily) {
-        await enqueue(tenant, { kind, key: day, payload: { day } });
+        await enqueue(tenant, { kind, key: day, payload: { day }, runAt: now });
         enqueued++;
       }
     });
