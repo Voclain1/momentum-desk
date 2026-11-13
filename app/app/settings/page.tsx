@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { formatPercent } from "@/lib/catalogue/schema";
 import { listTaxRates } from "@/lib/catalogue/service";
 import { settingsOptions } from "@/lib/organizations/options";
+import { headers } from "next/headers";
 import { invoiceNumbering } from "@/lib/invoices/service";
+import { listConnections } from "@/lib/payments/connections";
+import { PROVIDERS } from "@/lib/payments/providers";
+import { providerSecretsConfigured } from "@/lib/payments/server";
+import { publicOrigin } from "@/lib/email/server";
 import { invoiceSettings } from "@/lib/invoices/settings";
 import { quoteNumbering } from "@/lib/quotes/service";
 import { tenantData } from "@/lib/tenant";
@@ -11,6 +16,8 @@ import { SettingsForm } from "./settings-form";
 import { updateInvoiceNumberingAction, updateInvoiceSettingsAction } from "../invoices/actions";
 import { updateNumberingAction } from "../quotes/actions";
 import { InvoiceSettingsPanel } from "./invoice-settings";
+import { connectProviderAction, disconnectProviderAction } from "./provider-actions";
+import { ProvidersPanel } from "./providers-panel";
 import { QuoteNumbering } from "./quote-numbering";
 import { TaxRates } from "./tax-rates";
 
@@ -26,6 +33,15 @@ export default async function SettingsPage() {
     invoiceNumbering(tenantData, organization.id),
     invoiceSettings(tenantData, organization.id),
   ]);
+  const canSeeProviders = tenant.can("providers:manage");
+  const connections = canSeeProviders ? await listConnections(tenantData, organization.id) : [];
+  const h = await headers();
+  const origin = publicOrigin(`${h.get("x-forwarded-proto") ?? "http"}://${h.get("x-forwarded-host") ?? h.get("host") ?? "localhost"}`);
+  const NOTES: Record<string, string> = {
+    paystack: "Businesses registered in Nigeria, Ghana, Kenya or South Africa. Uses your secret key to check webhooks.",
+    stripe: "Businesses in the UK, US, EU and other Stripe countries. Card payments through Stripe Checkout.",
+    bachs: "Cards (USD), African mobile money and more. Confirm in Bachs's sandbox before taking live payments.",
+  };
   const baseCurrencyName =
     new Intl.DisplayNames(["en"], { type: "currency" }).of(organization.baseCurrency) ?? organization.baseCurrency;
 
@@ -76,6 +92,22 @@ export default async function SettingsPage() {
         />
         <QuoteNumbering initial={numbering} canEdit={canEdit} action={updateNumberingAction} />
         <QuoteNumbering initial={invoiceNumbers} canEdit={canEdit} action={updateInvoiceNumberingAction} noun="invoice" />
+        {canSeeProviders ? (
+          <ProvidersPanel
+            canManage
+            configured={providerSecretsConfigured}
+            connect={connectProviderAction}
+            disconnect={disconnectProviderAction}
+            providers={Object.values(PROVIDERS).map((p) => ({
+              key: p.key, name: p.name, currencies: [...p.currencies], needsWebhookSecret: p.key !== "paystack", note: NOTES[p.key],
+            }))}
+            connections={connections.map((c) => ({
+              id: c.id, provider: c.provider, name: PROVIDERS[c.provider as keyof typeof PROVIDERS]?.name ?? c.provider,
+              mode: c.mode, keyHint: c.keyHint, currencies: c.currencies,
+              webhookUrl: new URL(`/api/webhooks/${c.provider}/${c.id}`, origin).toString(),
+            }))}
+          />
+        ) : null}
         <InvoiceSettingsPanel
           canEdit={canEdit}
           action={updateInvoiceSettingsAction}

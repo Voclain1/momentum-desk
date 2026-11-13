@@ -338,5 +338,14 @@ export async function onlineActivity(data: TenantData, organizationId: string, i
   const events = attempts.length
     ? await tenant.providerEvent.findMany({ where: { attemptId: { in: attempts.map((a) => a.id) } }, orderBy: { receivedAt: "desc" }, take: 50 })
     : [];
-  return { attempts, events };
+  const paymentIds = attempts.flatMap((a) => (a.paymentId ? [a.paymentId] : []));
+  const payments = paymentIds.length
+    ? await tenant.payment.findMany({ where: { id: { in: paymentIds } }, include: { allocations: { where: { voidedAt: null } } } })
+    : [];
+  // Money received through an attempt beyond what was allocated: to refund (D36).
+  const unallocated = payments
+    .filter((p) => !p.voidedAt)
+    .map((p) => ({ paymentId: p.id, source: p.source, currency: p.currency, amountMinor: p.amountMinor - p.allocations.reduce((sum, a) => sum + a.amountMinor, 0n) }))
+    .filter((p) => p.amountMinor > 0n);
+  return { attempts, events, unallocated };
 }

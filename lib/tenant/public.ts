@@ -54,6 +54,10 @@ export function createPublicLinks(db: DbClient) {
         });
       });
     },
+    /** A workspace's timezone, for dating a payment received by webhook. */
+    async organizationTimezone(organizationId: string) {
+      return (await seller(organizationId))?.timezone ?? "UTC";
+    },
     async invoiceLink(token: string): Promise<(PublicLink & { invoiceId: string }) | null> {
       if (!TOKEN.test(token)) return null;
       const tokenHash = hashToken(token);

@@ -7,6 +7,8 @@ import { formatScaled } from "@/lib/documents/calc";
 import { RecordNotFoundError } from "@/lib/errors";
 import { getInvoice, invoiceStatus } from "@/lib/invoices/service";
 import { invoiceActivity } from "@/lib/invoices/sharing";
+import { onlineActivity } from "@/lib/payments/online";
+import { PROVIDERS } from "@/lib/payments/providers";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
 import { PAYMENT_METHODS } from "@/lib/payments/service";
@@ -58,6 +60,8 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
   const day = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeZone: "UTC" });
   const outstanding = invoice.totalMinor - invoice.paidMinor;
   const activity = isDraft ? { links: [], events: [] } : await invoiceActivity(tenantData, organization.id, invoice.id);
+  const online = isDraft || !tenant.can("payments:read") ? null : await onlineActivity(tenantData, organization.id, invoice.id);
+  const providerName = (key: string) => PROVIDERS[key as keyof typeof PROVIDERS]?.name ?? key;
   const time = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeStyle: "short", timeZone: organization.timezone });
 
   const header = (
@@ -182,10 +186,14 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
                       {payment.voidedAt ? <span className="pill">Void</span> : null}
                     </strong>
                     <small>
+                      {payment.source !== "manual" ? `${providerName(payment.source)} · ` : ""}
                       {METHOD_LABELS[payment.method as keyof typeof METHOD_LABELS] ?? payment.method} · received {day.format(payment.receivedOn)}
                       {payment.reference ? ` · ${payment.reference}` : ""}
                     </small>
-                    <small>Recorded {date.format(payment.createdAt)}{payment.recordedBy ? ` by ${payment.recordedBy.name}` : ""}</small>
+                    <small>
+                      Recorded {date.format(payment.createdAt)}
+                      {payment.recordedBy ? ` by ${payment.recordedBy.name}` : payment.source !== "manual" ? `, confirmed by ${providerName(payment.source)}` : ""}
+                    </small>
                     {payment.note ? <small>{payment.note}</small> : null}
                     {payment.voidedAt ? <small>Voided: {payment.voidReason}{payment.voidedBy ? ` (${payment.voidedBy.name})` : ""}</small> : null}
                   </div>
@@ -203,6 +211,38 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
               );
             })}
           </ul>
+          {online?.unallocated.length ? (
+            <div role="alert" className="settings-message error unallocated">
+              {online.unallocated.map((u) => (
+                <p key={u.paymentId}>
+                  {formatMoney(money(u.amountMinor, u.currency), organization.locale)} was received through {providerName(u.source)} beyond
+                  what this invoice owed. Refund it in {providerName(u.source)}, then void the payment here.
+                </p>
+              ))}
+            </div>
+          ) : null}
+          {online?.attempts.length ? (
+            <details className="online-attempts">
+              <summary>Online payment attempts ({online.attempts.length})</summary>
+              <ul className="contact-list">
+                {online.attempts.map((attempt) => (
+                  <li key={attempt.id}>
+                    <div>
+                      <strong>{providerName(attempt.provider)} · {formatMoney(money(attempt.amountMinor, attempt.currency), organization.locale)}</strong>
+                      <small>
+                        {{ created: "Started", pending: "Waiting for the provider", succeeded: "Paid", failed: "Failed" }[attempt.status] ?? attempt.status}
+                        {" · "}{date.format(attempt.createdAt)}
+                      </small>
+                      {attempt.failureReason ? <small>{attempt.failureReason}</small> : null}
+                      {online.events.filter((e) => e.attemptId === attempt.id).map((e) => (
+                        <small key={e.id}>Webhook {e.type}: {e.outcome.replace("_", " ")}{e.detail ? ` (${e.detail})` : ""}</small>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           {invoice.status === "issued" && outstanding > 0n && tenant.can("payments:record") ? (
             <PaymentForm
               key={invoice.paidMinor.toString()}

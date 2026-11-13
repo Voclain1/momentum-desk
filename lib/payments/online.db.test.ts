@@ -199,6 +199,9 @@ describe("paying an invoice online", () => {
     expect((await getInvoice(data, actor.organizationId, invoice.id)).paidMinor).toBe(10000000n);
     const events = (await onlineActivity(data, actor.organizationId, invoice.id)).events;
     expect(events.some((e) => e.detail?.includes("kept unallocated for refund"))).toBe(true);
+    expect((await onlineActivity(data, actor.organizationId, invoice.id)).unallocated).toEqual([
+      { paymentId: payments[1].id, source: "paystack", currency: "NGN", amountMinor: 10000000n },
+    ]);
     // And the database refuses to allocate a payment beyond its amount.
     await expect(tenant.paymentAllocation.create({ data: { paymentId: payments[0].id, invoiceId: invoice.id, amountMinor: 1n } })).rejects.toThrow();
   });
