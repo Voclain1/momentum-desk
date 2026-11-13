@@ -79,7 +79,13 @@ export type AuditAction =
   | "payment.refunded"
   | "refund.succeeded"
   | "refund.failed"
-  | "job.retried";
+  | "job.retried"
+  | "fx.rate_added"
+  | "collection.updated"
+  | "collection.note_added"
+  | "promise.added"
+  | "promise.cancelled"
+  | "promise.resolved";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

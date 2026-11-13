@@ -5,9 +5,18 @@
  */
 import { hostname } from "node:os";
 import { db } from "@/lib/db";
-import { DAILY_JOBS, JOB_HANDLERS } from "@/lib/jobs/handlers";
+import { parseEnv } from "@/lib/env";
+import { createJobHandlers, DAILY_JOBS } from "@/lib/jobs/handlers";
+import { providerHttp } from "@/lib/payments/http";
 import { runWorker } from "@/lib/jobs/worker";
 import { tenantData } from "@/lib/tenant";
+
+const env = parseEnv(process.env);
+const JOB_HANDLERS = createJobHandlers({
+  organization: (id) => db.organization.findUnique({ where: { id }, select: { baseCurrency: true, timezone: true } }),
+  fxProviderKey: env.FX_PROVIDER_KEY,
+  http: providerHttp(env),
+});
 
 const controller = new AbortController();
 for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, () => controller.abort());

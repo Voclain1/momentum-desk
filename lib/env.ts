@@ -43,6 +43,8 @@ const envSchema = z
    * unless APP_URL is localhost, so it can never divert production email.
    */
   EMAIL_TEST_OUTBOX: z.string().optional(),
+  /** Open Exchange Rates app id for daily exchange rates (D38). Optional: staff can enter rates. */
+  FX_PROVIDER_KEY: z.string().min(10).optional(),
   /**
    * End-to-end tests only: send payment provider API calls to this local
    * stand-in instead of the real providers. Refused unless APP_URL is localhost.

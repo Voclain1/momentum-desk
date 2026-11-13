@@ -49,6 +49,10 @@ model User {
   invoiceLinks     InvoiceLink[] @relation("InvoiceLinkCreatedBy")
   providerConnections ProviderConnection[] @relation("ProviderConnectedBy")
   refundsRequested Refund[]     @relation("RefundRequestedBy")
+  ratesEntered     ExchangeRate[] @relation("RateEnteredBy")
+  collectionsOwned InvoiceCollection[] @relation("CollectionOwner")
+  promisesTaken    PromiseToPay[] @relation("PromiseTakenBy")
+  collectionNotes  CollectionNote[] @relation("CollectionNoteAuthor")
 
   @@map("user")
 }
@@ -166,6 +170,10 @@ model Organization {
   providerEvents  ProviderEvent[]
   refunds         Refund[]
   jobs            Job[]
+  exchangeRates   ExchangeRate[]
+  collections     InvoiceCollection[]
+  promises        PromiseToPay[]
+  collectionNotes CollectionNote[]
 
   @@map("organization")
 }
@@ -818,6 +826,9 @@ model Invoice {
   links        InvoiceLink[]
   events       InvoiceEvent[]
   attempts     PaymentAttempt[]
+  collection   InvoiceCollection?
+  promises     PromiseToPay[]
+  collectionNotes CollectionNote[]
 
   @@unique([id, organizationId])
   @@unique([organizationId, number])
@@ -1116,4 +1127,101 @@ model Job {
   @@unique([organizationId, kind, key])
   @@index([status, runAt])
   @@map("job")
+}
+
+/// An exchange rate for base-currency reporting (decision D38): 1 unit of
+/// `quote` is worth `rate` units of `base` on `effectiveOn`. From the rate
+/// provider or entered by staff; staff rates win on the same date. Never
+/// used to change a document's own amounts.
+model ExchangeRate {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  base           String
+  quote          String
+  /// Up to 12 decimal places.
+  rate           Decimal  @db.Decimal(24, 12)
+  /// "manual" or the provider's key, e.g. "openexchangerates".
+  source         String
+  effectiveOn    DateTime @db.Date
+  enteredById    String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enteredBy    User?        @relation("RateEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, base, quote, effectiveOn, source])
+  @@index([organizationId, quote, effectiveOn])
+  @@map("exchangeRate")
+}
+
+/// How an issued invoice is being collected (spec §7.7): who owns it, its
+/// collection status, and whether reminders are paused. Kept apart from the
+/// invoice, which never changes once issued.
+model InvoiceCollection {
+  id              String    @id @default(uuid(7))
+  organizationId  String
+  invoiceId       String
+  ownerUserId     String?
+  /// "open", "escalated" or "paused".
+  status          String    @default("open")
+  /// Reminders resume on this date; null while not paused.
+  pausedUntil     DateTime? @db.Date
+  pauseReason     String?
+  escalatedAt     DateTime? @db.Timestamptz(3)
+  escalationNote  String?
+  version         Int       @default(1)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  owner        User?        @relation("CollectionOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@unique([invoiceId, organizationId])
+  @@index([organizationId, status])
+  @@map("invoiceCollection")
+}
+
+/// A customer's promise to pay part or all of an invoice by a date (spec §7.7).
+/// While open, reminders wait; after the date it is kept or broken by what
+/// was actually paid.
+model PromiseToPay {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  invoiceId      String
+  promisedOn     DateTime  @db.Date
+  amountMinor    BigInt
+  currency       String
+  /// What had been paid when the promise was made, to judge it later.
+  paidAtStartMinor BigInt
+  note           String?
+  /// "open", "kept", "broken" or "cancelled".
+  status         String    @default("open")
+  takenById      String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  resolvedAt     DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  takenBy      User?        @relation("PromiseTakenBy", fields: [takenById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, status, promisedOn])
+  @@map("promiseToPay")
+}
+
+/// An internal note on collecting an invoice; never shown to the customer.
+model CollectionNote {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  invoiceId      String
+  body           String
+  authorUserId   String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  author       User?        @relation("CollectionNoteAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, invoiceId, createdAt])
+  @@map("collectionNote")
 }

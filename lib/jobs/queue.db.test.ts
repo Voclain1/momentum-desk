@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createTenantData } from "@/lib/tenant/core";
 import { createTestDb, disconnectOwnerDb, resetDatabase } from "@/test/db";
+import { createCustomer } from "@/lib/customers/service";
+import { createInvoice, issueInvoice } from "@/lib/invoices/service";
 import { deadJobs, retryDeadJob } from "./admin";
+import { createJobHandlers, DAILY_JOBS } from "./handlers";
 import { enqueue } from "./queue";
 import { backoffMs, claimJobs, LOCK_TIMEOUT_MINUTES } from "./queue-core";
 import { type JobHandler, runDueJobs, scheduleDaily, type WorkerDeps } from "./worker";
@@ -133,3 +136,33 @@ describe("the job queue", () => {
     expect(await db.job.findMany()).toEqual([]);
   });
 });
+
+describe("the daily jobs", () => {
+  it("refresh exchange rates and review receivables through the worker", async () => {
+    const { organizationId, userId } = await workspace();
+    const customer = await createCustomer(data, { organizationId, userId }, { type: "person", displayName: "Kofi" });
+    const draft = await createInvoice(data, { organizationId, userId }, {
+      customerId: customer.id, currency: "USD", taxMode: "exclusive", issuedOn: "2026-11-01", dueOn: "2026-11-10",
+      lines: [{ description: "Work", quantity: "1", unitPrice: "100" }],
+    });
+    await issueInvoice(data, { organizationId, userId }, draft.id, 1);
+    const requests: string[] = [];
+    const handlers = createJobHandlers({
+      organization: async () => ({ baseCurrency: "NGN", timezone: "Africa/Lagos" }),
+      fxProviderKey: "test-app-id-123",
+      http: async (url) => {
+        requests.push(url);
+        return { status: 200, json: async () => ({ rates: { USD: 1, NGN: 1580.5 } }) };
+      },
+    });
+    await scheduleDaily(deps(handlers, DAILY_JOBS));
+    expect(await runDueJobs(deps(handlers, DAILY_JOBS))).toEqual({ ran: 2, succeeded: 2, retried: 0, dead: 0 });
+    expect(requests).toEqual(["https://openexchangerates.org/api/latest.json?app_id=test-app-id-123"]);
+    const [rate] = await data.scoped(organizationId).exchangeRate.findMany();
+    expect([rate.base, rate.quote, rate.rate.toString(), rate.source]).toEqual(["NGN", "USD", "1580.5", "openexchangerates"]);
+    // Running the day's jobs again changes nothing.
+    await scheduleDaily(deps(handlers, DAILY_JOBS));
+    expect((await runDueJobs(deps(handlers, DAILY_JOBS))).ran).toBe(0);
+  });
+});
+
