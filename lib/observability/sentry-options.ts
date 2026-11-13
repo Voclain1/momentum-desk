@@ -10,8 +10,8 @@ export function sentryOptions() {
   return {
     dsn,
     enabled: Boolean(dsn),
-    // "production" or "preview" on Vercel, so the two never mix in Sentry.
-    environment: process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.VERCEL_ENV || process.env.NODE_ENV,
+    // e.g. "staging" on a second server, so it never mixes with production in Sentry.
+    environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV,
     // Never attach IP addresses, cookies or request bodies by default.
     sendDefaultPii: false,
     // A tenth of requests are traced for performance; errors are always sent.

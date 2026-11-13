@@ -1,0 +1,119 @@
+# MomentumDesk on one VPS (decision D9): PostgreSQL, migrations, the web
+# server, the background worker (D18) and Caddy for TLS. From deploy/:
+#   ./deploy.sh   (migrates first; never `up` straight over a running app)
+# Values come from deploy/.env (see .env.example and docs/go-live.md).
+name: momentumdesk
+
+x-app-env: &app-env
+  APP_URL: https://${DOMAIN:?set DOMAIN in deploy/.env}
+  DATABASE_URL: postgresql://momentum_app:${APP_DB_PASSWORD:?}@db:5432/momentum
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+  PROVIDER_SECRETS_KEY: ${PROVIDER_SECRETS_KEY:-}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  EMAIL_FROM: ${EMAIL_FROM:-}
+  FX_PROVIDER_KEY: ${FX_PROVIDER_KEY:-}
+  NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+  NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
+
+x-app: &app
+  image: momentumdesk:${APP_VERSION:-latest}
+  restart: unless-stopped
+  environment: *app-env
+  depends_on:
+    grants:
+      condition: service_completed_successfully
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: momentum
+      POSTGRES_USER: momentum_owner
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U momentum_owner -d momentum"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: momentumdesk:${APP_VERSION:-latest}
+    build:
+      context: ..
+      args:
+        APP_VERSION: ${APP_VERSION:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
+        SENTRY_ORG: ${SENTRY_ORG:-}
+        SENTRY_PROJECT: ${SENTRY_PROJECT:-}
+      secrets:
+        - sentry_auth_token
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      <<: *app-env
+      MIGRATION_DATABASE_URL: postgresql://momentum_owner:${DB_OWNER_PASSWORD:?}@db:5432/momentum
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # After migrations, (re)grant the restricted app role its privileges,
+  # including on tables the migrations just created.
+  grants:
+    image: postgres:16
+    command: ["sh", "/deploy/grants.sh"]
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://momentum_owner:${DB_OWNER_PASSWORD:?}@db:5432/momentum
+    volumes:
+      - ./grants.sh:/deploy/grants.sh:ro
+      - ../prisma/sql/app-role.sql:/deploy/app-role.sql:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  app:
+    <<: *app
+    # Graceful shutdown: in-flight requests finish before the server exits.
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    <<: *app
+    command: ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.json", "scripts/worker.ts"]
+    stop_grace_period: 60s
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+secrets:
+  # Read from the environment of `docker compose build`; empty means no upload.
+  sentry_auth_token:
+    environment: SENTRY_AUTH_TOKEN
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

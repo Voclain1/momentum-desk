@@ -13,6 +13,11 @@ import { runWorker } from "@/lib/jobs/worker";
 import { tenantData } from "@/lib/tenant";
 
 const env = parseEnv(process.env);
+// Reminders carry links to invoices: without the public origin they cannot be sent.
+if (env.NODE_ENV === "production" && !env.APP_URL) {
+  console.error("APP_URL must be set for the worker in production.");
+  process.exit(1);
+}
 const JOB_HANDLERS = createJobHandlers({
   organization: (id) => db.organization.findUnique({ where: { id }, select: { name: true, baseCurrency: true, timezone: true, locale: true } }),
   email: defaultEmailSender(env),

@@ -34,6 +34,7 @@ export async function checkHealth(client: DbClient = db): Promise<HealthReport> 
   return {
     status: database === "ok" ? "ok" : "unavailable",
     checks: { database },
-    version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+    // Set by the image build (Dockerfile, APP_VERSION build argument).
+    version: process.env.APP_VERSION?.slice(0, 7) || null,
   };
 }

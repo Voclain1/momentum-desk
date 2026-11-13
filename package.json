@@ -19,7 +19,6 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "test:e2e": "playwright test",
-    "vercel-build": "node scripts/vercel-build.mjs",
     "worker": "tsx --tsconfig tsconfig.json scripts/worker.ts"
   },
   "dependencies": {
