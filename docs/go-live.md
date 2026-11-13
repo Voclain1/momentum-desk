@@ -33,7 +33,7 @@ app works without it except for sending email.
    psql '<owner direct URL>' -v app_role=momentum_app -f prisma/sql/app-role.sql
    ```
 
-   Later migrations run automatically on each deploy (step 5) and the grants
+   Later migrations run automatically on each deploy (step 6) and the grants
    cover new tables.
 5. Previews (optional): install Neon's Vercel integration so each preview
    deployment gets its own database branch. Branches copy roles and grants
@@ -71,7 +71,36 @@ openssl rand -base64 32
 
 → `BETTER_AUTH_SECRET`. Changing it later signs everyone out.
 
-## 5. Vercel
+## 5. Payment providers (optional; online invoice payment)
+
+Each workspace connects its own Paystack, Stripe or Bachs account in
+Settings → Payment providers; MomentumDesk never holds the money (D19, D35).
+The server needs one secret to encrypt those keys:
+
+```bash
+openssl rand -base64 32
+```
+
+→ `PROVIDER_SECRETS_KEY` (production and preview should differ). Changing it
+later makes stored provider keys unreadable: workspaces would reconnect.
+
+Before taking live payments with a provider, run one test-mode payment end to
+end with its test keys:
+
+1. Connect the provider with test keys; copy the webhook URL shown.
+2. Add that URL in the provider's dashboard (Paystack: Settings → API Keys &
+   Webhooks; Stripe: Developers → Webhooks, events `checkout.session.completed`
+   and `checkout.session.async_payment_succeeded`, then paste its signing
+   secret; Bachs: its webhooks page, then paste its signing secret).
+3. Pay a small invoice from its public link and check it shows as paid, with
+   the payment listed as confirmed by the provider.
+4. **Bachs only:** the adapter follows Bachs's quickstart and third-party
+   SDKs because its full reference could not be read while building it.
+   Confirm in the sandbox that amounts, currency and the webhook signature
+   match (`lib/payments/providers/bachs.ts`); a mismatch is refused, never
+   recorded, so a failed sandbox payment shows what to fix.
+
+## 6. Vercel
 
 1. Import the GitHub repository `Voclain1/momentum-desk`. Framework: Next.js.
    Leave the build command empty: Vercel runs the `vercel-build` script, which
@@ -90,6 +119,7 @@ openssl rand -base64 32
    | `NEXT_PUBLIC_SENTRY_DSN` | from step 3 | same | No |
    | `SENTRY_AUTH_TOKEN` | from step 3 | same | Yes |
    | `SENTRY_ORG`, `SENTRY_PROJECT` | from step 3 | same | No |
+   | `PROVIDER_SECRETS_KEY` | from step 5 | a different value | Yes |
 
    `RESEND_API_KEY` and `EMAIL_FROM` must be set together; the app refuses to
    start with only one.
@@ -97,7 +127,7 @@ openssl rand -base64 32
    Vercel shows.
 4. Deploy.
 
-## 6. Check the deployment
+## 7. Check the deployment
 
 1. `https://momentumdesk.app/api/health` returns `{"status":"ok", ...}` with the
    deployed commit as `version`.

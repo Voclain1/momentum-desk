@@ -10,6 +10,10 @@ const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 /** Read by e2e/outbox.ts. */
 export const EMAIL_OUTBOX = `${process.cwd()}/e2e/.outbox/emails.jsonl`;
+/** Local stand-in for payment providers (e2e/mock-providers.mjs). */
+const MOCK_PROVIDERS = "http://localhost:3200";
+/** A fixed key for encrypting test provider keys; never used outside tests. */
+const TEST_PROVIDER_SECRETS_KEY = Buffer.alloc(32, 7).toString("base64");
 
 /**
  * End-to-end tests run the production build against TEST_DATABASE_URL, the
@@ -40,18 +44,28 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: process.env.CI
-      ? `pnpm start --port ${PORT}`
-      : `pnpm build && pnpm start --port ${PORT}`,
-    url: baseURL,
-    timeout: 180_000,
-    reuseExistingServer: false,
-    env: {
-      DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
-      APP_URL: baseURL,
-      // Emails go to this file so tests can read links and codes (lib/email).
-      EMAIL_TEST_OUTBOX: EMAIL_OUTBOX,
+  webServer: [
+    {
+      command: "node e2e/mock-providers.mjs",
+      url: `${MOCK_PROVIDERS}/health`,
+      reuseExistingServer: false,
     },
-  },
+    {
+      command: process.env.CI
+        ? `pnpm start --port ${PORT}`
+        : `pnpm build && pnpm start --port ${PORT}`,
+      url: baseURL,
+      timeout: 180_000,
+      reuseExistingServer: false,
+      env: {
+        DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
+        APP_URL: baseURL,
+        // Emails go to this file so tests can read links and codes (lib/email).
+        EMAIL_TEST_OUTBOX: EMAIL_OUTBOX,
+        // Provider API calls go to the local stand-in (lib/payments/http.ts).
+        PAYMENTS_TEST_API: MOCK_PROVIDERS,
+        PROVIDER_SECRETS_KEY: TEST_PROVIDER_SECRETS_KEY,
+      },
+    },
+  ],
 });

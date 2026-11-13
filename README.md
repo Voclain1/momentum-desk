@@ -62,6 +62,14 @@ Done:
 - Invoice PDF (`lib/documents/invoice-pdf.ts`): the shared document layout with paid, balance due, how to pay, and DRAFT / VOID stamps; staff download from `/app/invoices/{id}/pdf`, customers from `/i/{token}/pdf`
 - Later: online payment through providers (M4), reminders and collections (M5)
 
+## M4 (payments): in progress
+
+- D19 (owner): Paystack, Stripe and Bachs, for pilots in Nigeria, Ghana, Kenya, South Africa and the UK/US/EU; D35–D36 proposed (`docs/decisions.md`)
+- Provider adapters (`lib/payments/providers`): one interface for checkout, payment lookup and webhook signatures; Paystack and Stripe follow their documented APIs, Bachs is to be confirmed in its sandbox (`docs/go-live.md`)
+- Connections (Settings → Payment providers, owners and admins): each workspace's own account; keys encrypted with `PROVIDER_SECRETS_KEY`, shown once as a hint; a webhook URL per connection
+- Online payment: customers pay from the invoice's public link through the provider's checkout. Signed webhooks (`/api/webhooks/{provider}/{connection}`) and the customer's return both make our server ask the provider's API; the payment is recorded once per provider reference, however many deliveries arrive; amounts above what was owed are kept and flagged for refund; mismatched or forged events are refused
+- Tests run against a local stand-in for the providers (`e2e/mock-providers.mjs`, `PAYMENTS_TEST_API`, localhost only)
+
 End-to-end tests read emails from `e2e/.outbox/emails.jsonl` (`EMAIL_TEST_OUTBOX`, set by `playwright.config.ts`); the app refuses that setting unless `APP_URL` is localhost.
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
