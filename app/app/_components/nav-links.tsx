@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
   { label: "Quotes", icon: "▱", href: "/app/quotes" },
   { label: "Invoices", icon: "▤", href: "/app/invoices" },
   { label: "Payments", icon: "◎" },
-  { label: "Collections", icon: "↗" },
+  { label: "Collections", icon: "↗", href: "/app/receivables" },
 ];
 
 /** A section is current on its own page and any page below it (Overview only on /app). */

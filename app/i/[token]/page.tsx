@@ -8,7 +8,8 @@ import { formatMoney, money } from "@/lib/money";
 import { confirmReturn, payOptions } from "@/lib/payments/online";
 import { onlineDeps } from "@/lib/payments/server";
 import { publicLinks, tenantData } from "@/lib/tenant";
-import { payAction } from "./actions";
+import { payAction, stopRemindersAction } from "./actions";
+import { StopReminders } from "./stop-reminders";
 import { PayPanel } from "./pay";
 
 // Private by token: never indexed, and the token is not sent onward as a referrer.
@@ -66,6 +67,7 @@ export default async function PublicInvoicePage({ params, searchParams }: PagePr
       <p className="public-download">
         <a href={`/i/${token}/pdf`} className="link-button" download>Download PDF</a>
       </p>
+      {status === "void" || status === "paid" ? null : <StopReminders action={stopRemindersAction.bind(null, token)} />}
     </main>
   );
 }

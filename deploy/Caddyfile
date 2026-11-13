@@ -1,0 +1,12 @@
+# TLS certificates are obtained and renewed automatically for DOMAIN.
+{$DOMAIN} {
+	encode zstd gzip
+	# Payment provider webhooks and CSV imports stay well under this.
+	request_body {
+		max_size 4MB
+	}
+	reverse_proxy app:3000 {
+		# Keep streamed pages streaming.
+		flush_interval -1
+	}
+}

@@ -30,7 +30,7 @@ Done:
 - Email through Resend (`lib/email`): sign-in links, password resets, email confirmation and invitations. Plain HTTP API, 10-second timeout, errors never include the key or recipient
 - Error monitoring through Sentry (`instrumentation.ts`, `lib/observability`): server, edge and browser errors; off unless `NEXT_PUBLIC_SENTRY_DSN` is set. No session replay; every event is scrubbed of emails, IPs, cookies, auth headers, request bodies, one-time tokens and local variables before it leaves the app
 - Health check: `GET /api/health` returns 200 when the app and database are up, 503 otherwise
-- Deploys: Vercel runs `vercel-build`, which applies migrations as the owner and then builds; production refuses to deploy without `MIGRATION_DATABASE_URL`
+- Deploys (D9): one VPS with Docker Compose (`Dockerfile`, `deploy/`): PostgreSQL, the web server, the background worker and Caddy for HTTPS. `deploy/deploy.sh` runs migrations and grants first and leaves the running app alone if they fail; `deploy/backup.sh` takes nightly dumps
 
 **Going live:** [`docs/go-live.md`](docs/go-live.md) lists every account, key and setup step in order.
 
@@ -62,7 +62,7 @@ Done:
 - Invoice PDF (`lib/documents/invoice-pdf.ts`): the shared document layout with paid, balance due, how to pay, and DRAFT / VOID stamps; staff download from `/app/invoices/{id}/pdf`, customers from `/i/{token}/pdf`
 - Later: online payment through providers (M4), reminders and collections (M5)
 
-## M4 (payments): in progress
+## M4 (payments): done, except confirming Bachs in its sandbox
 
 - D19 (owner): Paystack, Stripe and Bachs, for pilots in Nigeria, Ghana, Kenya, South Africa and the UK/US/EU; D35–D36 proposed (`docs/decisions.md`)
 - Provider adapters (`lib/payments/providers`): one interface for checkout, payment lookup and webhook signatures; Paystack and Stripe follow their documented APIs, Bachs is to be confirmed in its sandbox (`docs/go-live.md`)
@@ -73,11 +73,30 @@ Done:
 
 End-to-end tests read emails from `e2e/.outbox/emails.jsonl` (`EMAIL_TEST_OUTBOX`, set by `playwright.config.ts`); the app refuses that setting unless `APP_URL` is localhost.
 
+## M5 (receivables and reminders): done, except the visual design
+
+- Background jobs (D18, `lib/jobs`, `pnpm worker`): a PostgreSQL queue enqueued in the same transaction as the change that causes it; workers claim with `FOR UPDATE SKIP LOCKED`, retry with back-off and give up after the last attempt. Failed jobs show in Settings with a Retry button. Daily jobs run once per workspace per local day
+- Receivables (`/app/receivables`, `lib/receivables`): ageing (current, 1–30, 31–60, 61–90, 90+) per currency, and in the base currency only when every currency has a rate (otherwise it says which are missing). Filters by age and "mine"
+- Exchange rates (D38, `lib/fx`): daily from Open Exchange Rates when `FX_PROVIDER_KEY` is set, plus rates staff enter in Settings, which win on the same day. Every rate keeps its source and date and is never edited; rates older than 7 days are marked stale
+- Collections (invoice page): an owner, pause until a date with a reason, escalate to a person, promises to pay (judged kept or broken by what was actually paid by the date) and internal notes, all audited
+- Payment reminders (`lib/reminders`, Settings): off until an owner turns them on. Steps 3 days before and 1, 7, 14 and 30 days after due, with fixed friendly, firm and final wording that states what is owed on the day. Only the latest due step is sent (never a backlog), with a minimum gap between reminders. Each step is checked again just before sending and stops for payment, void, dispute, pause, escalation, an open promise or opt-out; the invoice page lists every step with its reason. Customers stop reminders from their invoice link; staff can stop or restart them per customer
+
+## M6 (Momentum AI): in progress
+
+- Provider-neutral (D20, `lib/ai`): Anthropic or OpenAI behind one interface, chosen by `AI_PROVIDER`; off when unset, and every manual path works without it
+- Tasks (`lib/ai/tasks.ts`), each grounded in the caller's own authorized records and asked for JSON in a fixed schema:
+  - Leads: a summary, a suggested next step and an editable follow-up draft (open it in your email, log it as sent, or save the summary as a note)
+  - Quotes: lines suggested from a customer's request, matched to the catalogue; prices come only from the catalogue or the person, never the AI
+  - Collections: an editable email draft in a chosen tone; a person sends it, with a link to the invoice added, recorded as a collection note and audited
+  - Receivables: a short summary of overdue accounts and where to start
+- Guards: every number in AI text must appear in the facts it was given (`lib/ai/grounding.ts`), catalogue items and invoice numbers must be real, and quantities must come from the request. A failing answer gets one corrected retry, then is discarded. The AI never sends or saves anything
+- Usage (Settings → Momentum AI): a monthly request limit per workspace (owners and admins can lower it or turn AI off), with tokens and estimated cost. Only metadata is kept, never prompts or AI text
+
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
 
 ## Run locally
 
-Needs Node 20.9+, pnpm and PostgreSQL 16 (local, Docker, or a Neon branch).
+Needs Node 20.9+, pnpm and PostgreSQL 16 (local or Docker).
 
 ```bash
 pnpm install                  # also generates the Prisma client

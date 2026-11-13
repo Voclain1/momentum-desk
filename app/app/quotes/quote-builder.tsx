@@ -5,6 +5,8 @@ import { calculateDocument, type Discount, formatScaled, HUNDRED_PERCENT, parseS
 import { formatMoney, fromDecimalString, money } from "@/lib/money";
 import type { Option } from "@/lib/organizations/options";
 import type { FormState } from "./actions";
+import type { QuoteSuggestion } from "@/lib/ai/tasks";
+import type { AiResult } from "../ai/actions";
 import { type LineValues, newLine, type QuoteValues } from "./builder-values";
 
 export type { LineValues, QuoteValues };
@@ -71,7 +73,10 @@ export function QuoteBuilder({
   options,
   locale,
   submitLabel,
+  assist,
 }: {
+  /** Momentum AI quote assistance, when available. */
+  assist?: (request: string, currency: string) => Promise<AiResult<QuoteSuggestion>>;
   action: (state: FormState, form: FormData) => Promise<FormState>;
   initial: QuoteValues;
   version?: number;
@@ -117,6 +122,29 @@ export function QuoteBuilder({
       );
       return { ...current, currency, lines };
     });
+  };
+
+  /** A suggested line: a catalogue item at its catalogue price, or a described line whose price the person enters. */
+  const addSuggested = (suggested: QuoteSuggestion["lines"]) => {
+    let unpriced = 0;
+    const added = suggested.map((s) => {
+      const product = options.products.find((p) => p.id === s.productId);
+      const price = product?.prices[values.currency] ?? "";
+      if (!price) unpriced++;
+      return product
+        ? newLine({
+            productId: product.id,
+            description: product.description ? `${product.name} — ${product.description}` : product.name,
+            quantity: s.quantity, unit: product.unit ?? "", unitPrice: price,
+            taxRateId: options.taxRates.some((r) => r.id === product.taxRateId) ? (product.taxRateId ?? "") : "",
+          })
+        : newLine({ description: s.description, quantity: s.quantity });
+    });
+    setValues((current) => ({
+      ...current,
+      lines: [...current.lines.filter((line) => line.description || line.unitPrice || line.productId), ...added],
+    }));
+    setNotice(unpriced ? `Enter the price on ${unpriced === 1 ? "1 line" : `${unpriced} lines`}: prices come only from your catalogue or from you.` : "");
   };
 
   const addProduct = (productId: string) => {
@@ -295,6 +323,8 @@ export function QuoteBuilder({
           ) : null}
         </div>
 
+        {assist && kind === "quote" ? <QuoteAssist assist={assist} currency={values.currency} products={options.products} onAdd={addSuggested} /> : null}
+
         <dl className="quote-totals" aria-label="Totals">
           {totals ? (
             <>
@@ -323,5 +353,81 @@ export function QuoteBuilder({
         </div>
       </fieldset>
     </form>
+  );
+}
+
+/** Momentum AI: lines suggested from the customer's request; a person adds the ones they want. */
+function QuoteAssist({
+  assist,
+  currency,
+  products,
+  onAdd,
+}: {
+  assist: (request: string, currency: string) => Promise<AiResult<QuoteSuggestion>>;
+  currency: string;
+  products: BuilderOptions["products"];
+  onAdd: (lines: QuoteSuggestion["lines"]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [request, setRequest] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [suggestion, setSuggestion] = useState<QuoteSuggestion | null>(null);
+  if (!open) {
+    return (
+      <div className="row-buttons">
+        <button type="button" className="link-button" onClick={() => setOpen(true)}>Suggest lines from the customer&apos;s request (AI)</button>
+      </div>
+    );
+  }
+  const name = (line: QuoteSuggestion["lines"][number]) => products.find((p) => p.id === line.productId)?.name ?? line.description;
+  return (
+    <div className="contact-form" role="group" aria-label="Quote assistance">
+      {error ? <p role="alert" className="settings-message error">{error}</p> : null}
+      <label className="settings-field">
+        <span>What the customer asked for</span>
+        <textarea rows={4} maxLength={4000} value={request} onChange={(e) => setRequest(e.target.value)} placeholder="Paste their message or describe the request" />
+      </label>
+      <div className="row-buttons">
+        <button
+          type="button"
+          className="link-button"
+          disabled={pending}
+          onClick={async () => {
+            setPending(true);
+            setError("");
+            const response = await assist(request, currency);
+            setPending(false);
+            if (response.status === "error") setError(response.fields ? Object.values(response.fields).join("; ") : response.message);
+            else setSuggestion(response.result);
+          }}
+        >
+          {pending ? "Thinking…" : "Suggest lines"}
+        </button>
+        <button type="button" className="link-button" onClick={() => setOpen(false)}>Close</button>
+      </div>
+      {suggestion ? (
+        <>
+          <p className="form-hint">Suggested by Momentum AI from the request and your catalogue. Prices come from your catalogue, never from AI.</p>
+          <ul className="contact-list" aria-label="Suggested lines">
+            {suggestion.lines.map((line, i) => (
+              <li key={i}>
+                <div><strong>{line.quantity} × {name(line)}</strong><small>{line.productId ? "From your catalogue" : "Not in your catalogue: enter a price"}</small></div>
+                <div className="row-buttons"><button type="button" className="link-button" onClick={() => onAdd([line])}>Add</button></div>
+              </li>
+            ))}
+          </ul>
+          {suggestion.lines.length > 1 ? (
+            <div className="row-buttons"><button type="button" className="link-button" onClick={() => onAdd(suggestion.lines)}>Add all lines</button></div>
+          ) : null}
+          {suggestion.questions.length ? (
+            <>
+              <p className="form-hint">To confirm with the customer:</p>
+              <ul>{suggestion.questions.map((q, i) => <li key={i}>{q}</li>)}</ul>
+            </>
+          ) : null}
+        </>
+      ) : null}
+    </div>
   );
 }

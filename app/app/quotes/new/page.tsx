@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { aiAvailable } from "@/lib/ai/server";
+import { quoteAssistAction } from "../../ai/actions";
 import Link from "next/link";
 import { addDays, todayIn } from "@/lib/dates";
 import { RecordNotFoundError } from "@/lib/errors";
@@ -62,6 +64,7 @@ export default async function NewQuotePage({ searchParams }: PageProps<"/app/quo
       <section className="settings-page">
         <div className="panel settings-panel wide">
           <QuoteBuilder
+            assist={(await aiAvailable(tenant.organization.id)) ? quoteAssistAction : undefined}
             action={createQuoteAction}
             options={options}
             locale={organization.locale}

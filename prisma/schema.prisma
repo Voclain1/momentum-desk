@@ -49,6 +49,11 @@ model User {
   invoiceLinks     InvoiceLink[] @relation("InvoiceLinkCreatedBy")
   providerConnections ProviderConnection[] @relation("ProviderConnectedBy")
   refundsRequested Refund[]     @relation("RefundRequestedBy")
+  ratesEntered     ExchangeRate[] @relation("RateEnteredBy")
+  collectionsOwned InvoiceCollection[] @relation("CollectionOwner")
+  promisesTaken    PromiseToPay[] @relation("PromiseTakenBy")
+  collectionNotes  CollectionNote[] @relation("CollectionNoteAuthor")
+  aiInteractions   AiInteraction[]  @relation("AiInteractionUser")
 
   @@map("user")
 }
@@ -165,6 +170,15 @@ model Organization {
   paymentAttempts PaymentAttempt[]
   providerEvents  ProviderEvent[]
   refunds         Refund[]
+  jobs            Job[]
+  exchangeRates   ExchangeRate[]
+  collections     InvoiceCollection[]
+  promises        PromiseToPay[]
+  collectionNotes CollectionNote[]
+  reminderSteps   ReminderStep[]
+  aiSettings      AiSettings?
+  aiInteractions  AiInteraction[]
+  reminders       ReminderExecution[]
 
   @@map("organization")
 }
@@ -282,6 +296,10 @@ model Customer {
   notes             String?
   /// Archived customers are hidden from lists but keep their history.
   archivedAt        DateTime? @db.Timestamptz(3)
+  /// Payment reminders stop for this customer (spec §7.7 opt-out).
+  remindersOptedOutAt DateTime? @db.Timestamptz(3)
+  /// "customer" (from a reminder's invoice page) or "staff".
+  remindersOptOutBy   String?
   createdById       String?
   /// Incremented on every edit; saves must name the version they started from.
   version           Int       @default(1)
@@ -817,6 +835,10 @@ model Invoice {
   links        InvoiceLink[]
   events       InvoiceEvent[]
   attempts     PaymentAttempt[]
+  collection   InvoiceCollection?
+  promises     PromiseToPay[]
+  collectionNotes CollectionNote[]
+  reminders    ReminderExecution[]
 
   @@unique([id, organizationId])
   @@unique([organizationId, number])
@@ -925,6 +947,10 @@ model InvoiceSettings {
   organizationId      String   @unique
   paymentInstructions String?
   defaultDueDays      Int      @default(14)
+  /// Payment reminders by email (spec §7.7). Off until an owner turns them on.
+  remindersEnabled    Boolean  @default(false)
+  /// At least this many days between two reminders for an invoice.
+  reminderMinGapDays  Int      @default(3)
   updatedAt           DateTime @updatedAt @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1085,4 +1111,220 @@ model Refund {
   @@unique([organizationId, providerReference])
   @@index([organizationId, paymentId])
   @@map("refund")
+}
+
+/// Background work (decision D18): a transactional outbox and queue in the
+/// app's own database. Enqueued in the same transaction as the change that
+/// causes it, idempotent by (workspace, kind, key), run by the worker
+/// (`pnpm worker`) as a tenant transaction for its workspace.
+model Job {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  /// What to do, e.g. "reminders.run" (lib/jobs/handlers.ts).
+  kind           String
+  /// Idempotency key: the same (kind, key) is enqueued once.
+  key            String
+  payload        Json      @default("{}")
+  /// "queued", "running", "succeeded" or "dead".
+  status         String    @default("queued")
+  runAt          DateTime  @default(now()) @db.Timestamptz(3)
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  lastError      String?
+  lockedAt       DateTime? @db.Timestamptz(3)
+  lockedBy       String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt     DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind, key])
+  @@index([status, runAt])
+  @@map("job")
+}
+
+/// An exchange rate for base-currency reporting (decision D38): 1 unit of
+/// `quote` is worth `rate` units of `base` on `effectiveOn`. From the rate
+/// provider or entered by staff; staff rates win on the same date. Never
+/// used to change a document's own amounts.
+model ExchangeRate {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  base           String
+  quote          String
+  /// Up to 12 decimal places.
+  rate           Decimal  @db.Decimal(24, 12)
+  /// "manual" or the provider's key, e.g. "openexchangerates".
+  source         String
+  effectiveOn    DateTime @db.Date
+  enteredById    String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enteredBy    User?        @relation("RateEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, base, quote, effectiveOn, source])
+  @@index([organizationId, quote, effectiveOn])
+  @@map("exchangeRate")
+}
+
+/// How an issued invoice is being collected (spec §7.7): who owns it, its
+/// collection status, and whether reminders are paused. Kept apart from the
+/// invoice, which never changes once issued.
+model InvoiceCollection {
+  id              String    @id @default(uuid(7))
+  organizationId  String
+  invoiceId       String
+  ownerUserId     String?
+  /// "open", "escalated" or "paused".
+  status          String    @default("open")
+  /// Reminders resume on this date; null while not paused.
+  pausedUntil     DateTime? @db.Date
+  pauseReason     String?
+  escalatedAt     DateTime? @db.Timestamptz(3)
+  escalationNote  String?
+  version         Int       @default(1)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  owner        User?        @relation("CollectionOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@unique([invoiceId, organizationId])
+  @@index([organizationId, status])
+  @@map("invoiceCollection")
+}
+
+/// A customer's promise to pay part or all of an invoice by a date (spec §7.7).
+/// While open, reminders wait; after the date it is kept or broken by what
+/// was actually paid.
+model PromiseToPay {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  invoiceId      String
+  promisedOn     DateTime  @db.Date
+  amountMinor    BigInt
+  currency       String
+  /// What had been paid when the promise was made, to judge it later.
+  paidAtStartMinor BigInt
+  note           String?
+  /// "open", "kept", "broken" or "cancelled".
+  status         String    @default("open")
+  takenById      String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  resolvedAt     DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  takenBy      User?        @relation("PromiseTakenBy", fields: [takenById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, invoiceId])
+  @@index([organizationId, status, promisedOn])
+  @@map("promiseToPay")
+}
+
+/// An internal note on collecting an invoice; never shown to the customer.
+model CollectionNote {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  invoiceId      String
+  body           String
+  authorUserId   String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  author       User?        @relation("CollectionNoteAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, invoiceId, createdAt])
+  @@map("collectionNote")
+}
+
+/// When reminders go out, relative to an invoice's due date (negative:
+/// before), and how firm they are. Wording is fixed, factual and polite
+/// (spec §7.7: no threatening or misleading messages).
+model ReminderStep {
+  id             String @id @default(uuid(7))
+  organizationId String
+  offsetDays     Int
+  /// "friendly", "firm" or "final".
+  tone           String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, offsetDays])
+  @@map("reminderStep")
+}
+
+/// One reminder step for one invoice: queued, then sent or skipped (with the
+/// reason), never twice (spec §7.7 reminder history, retry-safe sending).
+model ReminderExecution {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  invoiceId      String
+  offsetDays     Int
+  tone           String
+  /// "queued", "sent" or "skipped".
+  status         String    @default("queued")
+  /// Why it was skipped, e.g. "paid", "promise", "paused".
+  reason         String?
+  /// What was owed when it was sent.
+  amountMinor    BigInt?
+  currency       String
+  sentTo         String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  completedAt    DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@unique([invoiceId, offsetDays])
+  @@index([organizationId, invoiceId, createdAt])
+  @@map("reminderExecution")
+}
+
+/// A workspace's Momentum AI settings (decision D20). Absent means on, with
+/// the server's monthly limit.
+model AiSettings {
+  id             String   @id @default(uuid(7))
+  organizationId String   @unique
+  enabled        Boolean  @default(true)
+  /// Requests per month; null means the server's limit (AI_MONTHLY_LIMIT).
+  monthlyLimit   Int?
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("aiSettings")
+}
+
+/// One AI request: what ran, for whom, and what it cost. Never the prompt
+/// or the AI's text (decision D20); a draft exists only once a person saves it.
+model AiInteraction {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  userId         String?
+  /// e.g. "lead.assist", "quote.assist", "collections.draft".
+  task           String
+  /// The workspace's month in its own timezone, "YYYY-MM": the limit's period.
+  period         String
+  provider       String
+  model          String
+  /// pending, ok, rejected (failed our checks), refused (by the model), error.
+  status         String
+  targetType     String?
+  targetId       String?
+  inputTokens    Int       @default(0)
+  outputTokens   Int       @default(0)
+  /// Estimated cost in millionths of a US dollar; null when the model's price is not known.
+  costMicros     BigInt?
+  errorCode      String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt     DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation("AiInteractionUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, period])
+  @@map("aiInteraction")
 }

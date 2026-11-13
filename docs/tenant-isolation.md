@@ -104,6 +104,20 @@ policy lets that request read the one connection it names, to check the
 signature with that connection's own secret; everything after runs as a
 tenant transaction for the connection's workspace.
 
+`job` is the background queue (D18). The worker (`scripts/worker.ts`) claims
+due jobs across workspaces through the `job_worker_access` policy, which only
+applies while its own transaction sets `app.job_worker`; each job's handler
+then runs as a tenant transaction for that job's workspace. Outside the
+worker the app role sees only the current workspace's jobs
+(`lib/jobs/queue.db.test.ts`). `exchangeRate` (append-only),
+`invoiceCollection`, `promiseToPay`, `collectionNote`, `reminderStep` and
+`reminderExecution` are ordinary tenant tables. A customer stops reminders
+from `/i/{token}` through the same invoice-link token lookup.
+
+`aiSettings` and `aiInteraction` (Momentum AI, D20) are ordinary tenant
+tables. AI tasks read their facts through the same scoped access, so a
+request can only ever be grounded in the caller's own workspace.
+
 Public quote pages (`/q/{token}`) have no session. `lib/tenant/public.ts`
 runs the one query without an organization: it sets the token's SHA-256 for
 its own transaction, and the read-only `quoteLink_token_lookup` policy lets it

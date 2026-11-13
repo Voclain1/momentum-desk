@@ -48,3 +48,5 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /e2e/.outbox/
+deploy/.env
+deploy/backups/

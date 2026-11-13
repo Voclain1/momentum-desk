@@ -16,6 +16,9 @@ import { convertLeadAction, setLeadArchivedAction, updateLeadAction } from "../a
 import { LeadForm } from "../lead-form";
 import { leadFormData } from "../page-data";
 import { ConversionPanel } from "./conversion-panel";
+import { aiAvailable } from "@/lib/ai/server";
+import { leadAssistAction, logLeadActivityAction } from "../../ai/actions";
+import { LeadAssistPanel } from "../../ai/panels";
 
 export const metadata: Metadata = { title: "Lead — MomentumDesk" };
 
@@ -112,6 +115,13 @@ export default async function LeadPage({ params }: PageProps<"/app/leads/[id]">)
           <PossibleDuplicates duplicates={duplicates} />
         </div>
       </section>
+      {canEdit && (await aiAvailable(tenant.organization.id)) ? (
+        <LeadAssistPanel
+          assist={leadAssistAction.bind(null, lead.id)}
+          log={logLeadActivityAction.bind(null, lead.id)}
+          contactEmail={lead.email}
+        />
+      ) : null}
       <RecordWork tenant={tenant} parent={{ type: "lead", id: lead.id }} canWrite={canEdit} />
     </>
   );

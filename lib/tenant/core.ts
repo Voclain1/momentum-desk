@@ -1,6 +1,8 @@
 import type { DbClient } from "@/lib/db/client";
 import type {
-  Activity, AuditLog, Contact, Customer, DocumentSequence, Invoice, InvoiceEvent, InvoiceItem, InvoiceLink, InvoiceSettings, Lead, Payment, PaymentAllocation, PaymentAttempt, ProviderConnection, ProviderEvent, Refund, PipelineStage, Prisma, Product, ProductPrice, Quote,
+  Activity, AuditLog, CollectionNote, Contact, Customer, ExchangeRate, InvoiceCollection, PromiseToPay, DocumentSequence, Invoice, Job, InvoiceEvent, InvoiceItem, InvoiceLink, InvoiceSettings, Lead, Payment, PaymentAllocation, PaymentAttempt, ProviderConnection, ProviderEvent, Refund, ReminderExecution,
+  AiSettings,
+  AiInteraction, ReminderStep, PipelineStage, Prisma, Product, ProductPrice, Quote,
   QuoteAcceptanceCode, QuoteEvent, QuoteItem, QuoteLink,
   Task, TaxRate,
 } from "@/lib/generated/prisma/client";
@@ -36,6 +38,15 @@ interface TenantModelTypes {
   paymentAttempt: { create: Prisma.PaymentAttemptUncheckedCreateInput; row: PaymentAttempt };
   providerEvent: { create: Prisma.ProviderEventUncheckedCreateInput; row: ProviderEvent };
   refund: { create: Prisma.RefundUncheckedCreateInput; row: Refund };
+  job: { create: Prisma.JobUncheckedCreateInput; row: Job };
+  exchangeRate: { create: Prisma.ExchangeRateUncheckedCreateInput; row: ExchangeRate };
+  invoiceCollection: { create: Prisma.InvoiceCollectionUncheckedCreateInput; row: InvoiceCollection };
+  promiseToPay: { create: Prisma.PromiseToPayUncheckedCreateInput; row: PromiseToPay };
+  collectionNote: { create: Prisma.CollectionNoteUncheckedCreateInput; row: CollectionNote };
+  reminderStep: { create: Prisma.ReminderStepUncheckedCreateInput; row: ReminderStep };
+  reminderExecution: { create: Prisma.ReminderExecutionUncheckedCreateInput; row: ReminderExecution };
+  aiSettings: { create: Prisma.AiSettingsUncheckedCreateInput; row: AiSettings };
+  aiInteraction: { create: Prisma.AiInteractionUncheckedCreateInput; row: AiInteraction };
 }
 
 /** Create input without the organization, which tenantDb always sets. */

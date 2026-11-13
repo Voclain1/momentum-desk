@@ -7,7 +7,7 @@ const required = { DATABASE_URL, BETTER_AUTH_SECRET };
 
 describe("parseEnv", () => {
   it("applies defaults when optional variables are absent", () => {
-    expect(parseEnv(required)).toEqual({ NODE_ENV: "development", ...required });
+    expect(parseEnv(required)).toEqual({ NODE_ENV: "development", AI_MONTHLY_LIMIT: 200, ...required });
   });
 
   it("accepts a valid configuration", () => {
@@ -16,12 +16,22 @@ describe("parseEnv", () => {
     ).toEqual({
       NODE_ENV: "production",
       APP_URL: "https://momentumdesk.app",
+      AI_MONTHLY_LIMIT: 200,
       ...required,
     });
   });
 
+  it("needs the chosen AI provider's key, and a model for OpenAI", () => {
+    expect(() => parseEnv({ ...required, AI_PROVIDER: "anthropic" })).toThrow(/ANTHROPIC_API_KEY: is required/);
+    expect(() => parseEnv({ ...required, AI_PROVIDER: "openai", OPENAI_API_KEY: "sk-test-123456" })).toThrow(/AI_MODEL are required/);
+    expect(parseEnv({ ...required, AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "sk-ant-test-123", AI_MONTHLY_LIMIT: "50" })).toMatchObject({
+      AI_PROVIDER: "anthropic", AI_MONTHLY_LIMIT: 50,
+    });
+    expect(() => parseEnv({ ...required, APP_URL: "https://momentumdesk.app", AI_TEST_API: "http://localhost:3200" })).toThrow(/AI_TEST_API/);
+  });
+
   it("treats empty strings as unset", () => {
-    expect(parseEnv({ APP_URL: "", ...required })).toEqual({ NODE_ENV: "development", ...required });
+    expect(parseEnv({ APP_URL: "", ...required })).toEqual({ NODE_ENV: "development", AI_MONTHLY_LIMIT: 200, ...required });
   });
 
   it("accepts both postgres URL schemes", () => {

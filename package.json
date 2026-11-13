@@ -19,9 +19,10 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "test:e2e": "playwright test",
-    "vercel-build": "node scripts/vercel-build.mjs"
+    "worker": "tsx --tsconfig tsconfig.json scripts/worker.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@better-auth/core": "1.7.7",
     "@pdf-lib/fontkit": "1.1.1",
     "@prisma/adapter-pg": "7.10.0",
@@ -29,10 +30,12 @@
     "@sentry/nextjs": "11.11.0",
     "better-auth": "1.7.7",
     "next": "16.3.8",
+    "openai": "^7.55.0",
     "pdf-lib": "1.17.1",
     "pg": "^8.23.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {

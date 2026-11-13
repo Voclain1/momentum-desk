@@ -9,6 +9,14 @@ import { getInvoice, invoiceStatus } from "@/lib/invoices/service";
 import { invoiceActivity } from "@/lib/invoices/sharing";
 import { onlineActivity } from "@/lib/payments/online";
 import { canRefundThroughProvider } from "@/lib/payments/refunds";
+import { getCollection } from "@/lib/receivables/service";
+import { remindersFor, STOP_LABELS, type StopReason } from "@/lib/reminders/service";
+import { listTeam } from "@/lib/auth/team";
+import { addNoteAction, addPromiseAction, cancelPromiseAction, updateCollectionAction } from "../../receivables/actions";
+import { CollectionPanel } from "../collection-panel";
+import { aiAvailable } from "@/lib/ai/server";
+import { collectionsDraftAction, sendCollectionMessageAction } from "../../ai/actions";
+import { CollectionMessagePanel } from "../../ai/panels";
 import { PROVIDERS } from "@/lib/payments/providers";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
@@ -66,6 +74,15 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
   const online = isDraft || !tenant.can("payments:read") ? null : await onlineActivity(tenantData, organization.id, invoice.id);
   const providerName = (key: string) => PROVIDERS[key as keyof typeof PROVIDERS]?.name ?? key;
   const canRefund = tenant.can("payments:refund");
+  const collecting = invoice.status === "issued" && tenant.can("collections:read");
+  const [collection, reminders, team] = collecting
+    ? await Promise.all([
+        getCollection(tenantData, organization.id, invoice.id),
+        remindersFor(tenantData, organization.id, invoice.id),
+        listTeam(organization.id),
+      ])
+    : [null, [], []];
+  const REMINDER_TONE: Record<string, string> = { friendly: "Friendly reminder", firm: "Firm reminder", final: "Final reminder" };
   const REFUND_STATUS: Record<string, string> = { pending: "processing", succeeded: "refunded", failed: "failed" };
   const time = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeStyle: "short", timeZone: organization.timezone });
 
@@ -141,6 +158,83 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
         </ul>
       </section>
 
+      {collecting && collection ? (
+        <section className="panel contacts-panel" aria-label="Collection">
+          <div className="panel-heading">
+            <div>
+              <h3>Collection</h3>
+              <p>{collection.collection?.ownerUserId ? `Owner: ${team.find((m) => m.userId === collection.collection?.ownerUserId)?.name ?? "a former member"}` : "No owner yet."}</p>
+            </div>
+          </div>
+          <CollectionPanel
+            collection={{
+              status: collection.collection?.status ?? "open",
+              ownerUserId: collection.collection?.ownerUserId ?? null,
+              pausedUntil: collection.collection?.pausedUntil ? day.format(collection.collection.pausedUntil) : null,
+              pauseReason: collection.collection?.pauseReason ?? null,
+              escalationNote: collection.collection?.escalationNote ?? null,
+            }}
+            members={team.map((m) => ({ id: m.userId, name: m.name }))}
+            canWrite={tenant.can("collections:write")}
+            update={updateCollectionAction.bind(null, invoice.id)}
+            addPromise={addPromiseAction.bind(null, invoice.id)}
+            addNote={addNoteAction.bind(null, invoice.id)}
+            currency={invoice.currency}
+            owed={toDecimalString(money(outstanding, invoice.currency))}
+            today={today}
+          />
+          {tenant.can("collections:write") && outstanding > 0n ? (
+            <div className="collection-panel">
+              <CollectionMessagePanel
+                recipient={invoice.recipientEmail}
+                aiAvailable={await aiAvailable(organization.id)}
+                draft={collectionsDraftAction.bind(null, invoice.id)}
+                send={sendCollectionMessageAction.bind(null, invoice.id)}
+              />
+            </div>
+          ) : null}
+          <ul className="contact-list">
+            {collection.promises.map((p) => (
+              <li key={p.id}>
+                <div>
+                  <strong>Promise: {show(p.amountMinor)} by {day.format(p.promisedOn)}</strong>
+                  <small>{{ open: "Open", kept: "Kept", broken: "Broken", cancelled: "Cancelled" }[p.status] ?? p.status}{p.takenBy ? ` · taken by ${p.takenBy.name}` : ""}{p.note ? ` · ${p.note}` : ""}</small>
+                </div>
+                {p.status === "open" && tenant.can("collections:write") ? (
+                  <div className="row-buttons"><StepButton action={cancelPromiseAction.bind(null, p.id, invoice.id)} label="Cancel promise" /></div>
+                ) : null}
+              </li>
+            ))}
+            {collection.notes.map((n) => (
+              <li key={n.id}><div><strong>Note</strong><small>{n.body}</small><small>{date.format(n.createdAt)}{n.author ? ` · ${n.author.name}` : ""}</small></div></li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {reminders.length ? (
+        <section className="panel contacts-panel" aria-label="Reminders">
+          <div className="panel-heading"><div><h3>Reminders</h3><p>Every reminder step, sent or skipped, with the reason.</p></div></div>
+          <ul className="contact-list">
+            {reminders.map((r) => (
+              <li key={r.id}>
+                <div>
+                  <strong>{REMINDER_TONE[r.tone] ?? r.tone} ({r.offsetDays < 0 ? `${-r.offsetDays} days before due` : `${r.offsetDays} days after due`})</strong>
+                  <small>
+                    {r.status === "sent"
+                      ? `Sent to ${r.sentTo} for ${show(r.amountMinor!)}`
+                      : r.status === "queued"
+                        ? "Waiting to be sent"
+                        : r.reason === "superseded"
+                          ? "Skipped: a later step was due"
+                          : `Skipped: ${STOP_LABELS[r.reason as StopReason] ?? r.reason}`}
+                    {r.completedAt ? ` · ${date.format(r.completedAt)}` : ""}
+                  </small>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {!isDraft ? (
         <p className="quote-download">
           <a href={`/app/invoices/${invoice.id}/pdf`} className="link-button" download>Download PDF</a>
