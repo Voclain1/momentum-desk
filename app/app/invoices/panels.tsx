@@ -126,3 +126,55 @@ export function PaymentForm({
     </form>
   );
 }
+
+/** Returns money from a payment (decision D37): through its provider, or recorded. */
+export function RefundForm({
+  action,
+  currency,
+  refundable,
+  provider,
+}: {
+  action: Action;
+  currency: string;
+  refundable: string;
+  /** The provider's name when the payment can be refunded through it. */
+  provider: string | null;
+}) {
+  const [shown, setShown] = useState(false);
+  const [state, formAction, pending] = useActionState(action, { status: "idle" });
+  const [values, setValues] = useState({ amount: refundable, reason: "", method: provider ? "provider" : "manual" });
+  if (!shown) return <button type="button" className="link-button" onClick={() => setShown(true)}>Refund</button>;
+  return (
+    <form action={formAction} className="contact-form" aria-label="Refund">
+      <Message state={state} />
+      <fieldset disabled={pending}>
+        <label className="settings-field">
+          <span>Amount to refund ({currency})</span>
+          <input name="amount" inputMode="decimal" required value={values.amount} onChange={(e) => setValues((v) => ({ ...v, amount: e.target.value }))} />
+          <small>Up to {refundable} {currency}.</small>
+        </label>
+        <label className="settings-field">
+          <span>Reason</span>
+          <input name="reason" required minLength={3} maxLength={500} value={values.reason} onChange={(e) => setValues((v) => ({ ...v, reason: e.target.value }))} />
+        </label>
+        <fieldset className="currency-choices">
+          <legend>How</legend>
+          {provider ? (
+            <label className="check">
+              <input type="radio" name="method" value="provider" checked={values.method === "provider"} onChange={() => setValues((v) => ({ ...v, method: "provider" }))} />
+              Refund through {provider}
+            </label>
+          ) : null}
+          <label className="check">
+            <input type="radio" name="method" value="manual" checked={values.method === "manual"} onChange={() => setValues((v) => ({ ...v, method: "manual" }))} />
+            Record a refund I made another way
+          </label>
+        </fieldset>
+        <div className="row-buttons">
+          <button type="submit" className="new-button">{pending ? "Refunding…" : "Refund"}</button>
+          <button type="button" className="link-button" onClick={() => setShown(false)}>Cancel</button>
+        </div>
+      </fieldset>
+    </form>
+  );
+}

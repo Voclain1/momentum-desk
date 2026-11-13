@@ -8,6 +8,7 @@ import { RecordNotFoundError } from "@/lib/errors";
 import { getInvoice, invoiceStatus } from "@/lib/invoices/service";
 import { invoiceActivity } from "@/lib/invoices/sharing";
 import { onlineActivity } from "@/lib/payments/online";
+import { canRefundThroughProvider } from "@/lib/payments/refunds";
 import { PROVIDERS } from "@/lib/payments/providers";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
@@ -32,10 +33,12 @@ import {
   updateDraftAction,
   voidInvoiceAction,
   voidPaymentAction,
+  refreshRefundAction,
+  refundPaymentAction,
 } from "../actions";
 import { ConvertedDraftForm } from "../converted-draft";
 import { INVOICE_STATUS_LABELS, METHOD_LABELS } from "../labels";
-import { PaymentForm, ReasonForm, StepButton } from "../panels";
+import { PaymentForm, ReasonForm, RefundForm, StepButton } from "../panels";
 
 export const metadata: Metadata = { title: "Invoice — MomentumDesk" };
 
@@ -62,6 +65,8 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
   const activity = isDraft ? { links: [], events: [] } : await invoiceActivity(tenantData, organization.id, invoice.id);
   const online = isDraft || !tenant.can("payments:read") ? null : await onlineActivity(tenantData, organization.id, invoice.id);
   const providerName = (key: string) => PROVIDERS[key as keyof typeof PROVIDERS]?.name ?? key;
+  const canRefund = tenant.can("payments:refund");
+  const REFUND_STATUS: Record<string, string> = { pending: "processing", succeeded: "refunded", failed: "failed" };
   const time = new Intl.DateTimeFormat(organization.locale, { dateStyle: "medium", timeStyle: "short", timeZone: organization.timezone });
 
   const header = (
@@ -196,8 +201,29 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
                     </small>
                     {payment.note ? <small>{payment.note}</small> : null}
                     {payment.voidedAt ? <small>Voided: {payment.voidReason}{payment.voidedBy ? ` (${payment.voidedBy.name})` : ""}</small> : null}
+                    {payment.refunds.map((refund) => (
+                      <small key={refund.id} className={refund.status === "failed" ? "refund-failed" : undefined}>
+                        Refund {show(refund.amountMinor)} {REFUND_STATUS[refund.status] ?? refund.status}
+                        {refund.method === "provider" ? ` through ${providerName(payment.source)}` : " (recorded)"} · {refund.reason}
+                        {refund.requestedBy ? ` · ${refund.requestedBy.name}` : ""}
+                        {refund.failureReason ? ` · ${refund.failureReason}` : ""}
+                        {refund.status === "pending" && canRefund ? (
+                          <> <StepButton action={refreshRefundAction.bind(null, refund.id, invoice.id)} label="Check status" /></>
+                        ) : null}
+                      </small>
+                    ))}
                   </div>
-                  {!payment.voidedAt && tenant.can("payments:record") ? (
+                  {!payment.voidedAt && canRefund && payment.amountMinor - payment.refunds.filter((r) => r.status !== "failed").reduce((sum, r) => sum + r.amountMinor, 0n) > 0n ? (
+                    <div className="row-buttons">
+                      <RefundForm
+                        action={refundPaymentAction.bind(null, payment.id, invoice.id)}
+                        currency={payment.currency}
+                        refundable={toDecimalString(money(payment.amountMinor - payment.refunds.filter((r) => r.status !== "failed").reduce((sum, r) => sum + r.amountMinor, 0n), payment.currency))}
+                        provider={canRefundThroughProvider(payment) ? providerName(payment.source) : null}
+                      />
+                    </div>
+                  ) : null}
+                  {!payment.voidedAt && payment.refunds.every((r) => r.status === "failed") && tenant.can("payments:record") ? (
                     <div className="row-buttons">
                       <ReasonForm
                         action={voidPaymentAction.bind(null, payment.id, invoice.id)}
@@ -214,10 +240,20 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
           {online?.unallocated.length ? (
             <div role="alert" className="settings-message error unallocated">
               {online.unallocated.map((u) => (
-                <p key={u.paymentId}>
-                  {formatMoney(money(u.amountMinor, u.currency), organization.locale)} was received through {providerName(u.source)} beyond
-                  what this invoice owed. Refund it in {providerName(u.source)}, then void the payment here.
-                </p>
+                <div key={u.paymentId}>
+                  <p>
+                    {formatMoney(money(u.amountMinor, u.currency), organization.locale)} was received through {providerName(u.source)} beyond
+                    what this invoice owed. Refund it to the customer.
+                  </p>
+                  {canRefund ? (
+                    <RefundForm
+                      action={refundPaymentAction.bind(null, u.paymentId, invoice.id)}
+                      currency={u.currency}
+                      refundable={toDecimalString(money(u.amountMinor, u.currency))}
+                      provider={PROVIDERS[u.source as keyof typeof PROVIDERS]?.refund ? providerName(u.source) : null}
+                    />
+                  ) : null}
+                </div>
               ))}
             </div>
           ) : null}

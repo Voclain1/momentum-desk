@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 
 const port = Number(process.env.MOCK_PROVIDERS_PORT ?? 3200);
 const transactions = new Map();
+const refunds = new Map();
 let nextId = 1000;
 
 const read = (request) =>
@@ -38,6 +39,20 @@ createServer(async (request, response) => {
       status: true,
       data: { id: tx.id, status: tx.status, reference: tx.reference, amount: Number(tx.amount), currency: tx.currency, channel: "card" },
     });
+  }
+
+  // Refunds start pending and are processed by the time anyone asks again.
+  if (request.method === "POST" && url.pathname === "/api.paystack.co/refund") {
+    const body = JSON.parse(await read(request));
+    const id = nextId++;
+    refunds.set(String(id), { ...body, id });
+    return json(response, 200, { status: true, data: { id, status: "pending", amount: Number(body.amount) } });
+  }
+  const refund = /^\/api\.paystack\.co\/refund\/(.+)$/.exec(url.pathname);
+  if (request.method === "GET" && refund) {
+    const found = refunds.get(refund[1]);
+    if (!found) return json(response, 404, { status: false, message: "Refund not found" });
+    return json(response, 200, { status: true, data: { id: found.id, status: "processed" } });
   }
 
   const pay = /^\/pay\/(.+)$/.exec(url.pathname);

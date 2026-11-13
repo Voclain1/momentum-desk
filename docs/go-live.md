@@ -93,7 +93,10 @@ end with its test keys:
    and `checkout.session.async_payment_succeeded`, then paste its signing
    secret; Bachs: its webhooks page, then paste its signing secret).
 3. Pay a small invoice from its public link and check it shows as paid, with
-   the payment listed as confirmed by the provider.
+   the payment listed as confirmed by the provider. Then refund part of it
+   from the invoice page (Paystack, Stripe) and check the refund settles
+   (Paystack's refund webhooks are `refund.processed` and `refund.failed`;
+   for Stripe also send `refund.updated`).
 4. **Bachs only:** the adapter follows Bachs's quickstart and third-party
    SDKs because its full reference could not be read while building it.
    Confirm in the sandbox that amounts, currency and the webhook signature

@@ -97,8 +97,8 @@ revision), `quoteItem` (references `quote` and `product`), `quoteLink`,
 `invoice`). Invoice links (`/i/{token}`) use the same token lookup as quote
 links, through the `invoiceLink_token_lookup` policy.
 
-`providerConnection`, `paymentAttempt` and `providerEvent` hold online
-payments. Provider webhooks arrive without a session at
+`providerConnection`, `paymentAttempt`, `providerEvent` and `refund` hold
+online payments and refunds. Provider webhooks arrive without a session at
 `/api/webhooks/{provider}/{connectionId}`: the `providerConnection_webhook_lookup`
 policy lets that request read the one connection it names, to check the
 signature with that connection's own secret; everything after runs as a

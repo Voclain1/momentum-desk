@@ -94,5 +94,22 @@ test("a customer pays an invoice online through Paystack; duplicate webhooks cha
   const forged = await page.request.post(webhookUrl, { data: body, headers: { "content-type": "application/json", "x-paystack-signature": "0".repeat(128) } });
   expect(forged.status()).toBe(400);
   await page.reload();
-  await expect(payments.getByRole("listitem").filter({ hasText: "₦45,000.00" })).toHaveCount(1);
+  const payment = payments.getByRole("listitem").filter({ hasText: "₦45,000.00" });
+  await expect(payment).toHaveCount(1);
+
+  // A partial refund through Paystack: the invoice owes it again until settled otherwise.
+  await payment.getByRole("button", { name: "Refund" }).click();
+  const refund = payment.getByRole("form", { name: "Refund" });
+  await refund.getByLabel(/Amount to refund/).fill("15000");
+  await refund.getByLabel("Reason").fill("Second visit not needed");
+  await expect(refund.getByLabel("Refund through Paystack")).toBeChecked();
+  await refund.getByRole("button", { name: "Refund" }).click();
+  await expect(page.getByText("Refund requested; the provider is processing it.")).toBeVisible();
+  await page.reload();
+  await expect(pill(page)).toHaveText("Partly paid");
+  await expect(payment).toContainText("Refund ₦15,000.00 processing through Paystack · Second visit not needed");
+  await payment.getByRole("button", { name: "Check status" }).click();
+  await expect(page.getByText("Refund succeeded.")).toBeVisible();
+  await page.reload();
+  await expect(payment).toContainText("Refund ₦15,000.00 refunded through Paystack");
 });
