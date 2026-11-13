@@ -1,6 +1,8 @@
 import type { DbClient } from "@/lib/db/client";
 import type {
-  Activity, AuditLog, CollectionNote, Contact, Customer, ExchangeRate, InvoiceCollection, PromiseToPay, DocumentSequence, Invoice, Job, InvoiceEvent, InvoiceItem, InvoiceLink, InvoiceSettings, Lead, Payment, PaymentAllocation, PaymentAttempt, ProviderConnection, ProviderEvent, Refund, ReminderExecution, ReminderStep, PipelineStage, Prisma, Product, ProductPrice, Quote,
+  Activity, AuditLog, CollectionNote, Contact, Customer, ExchangeRate, InvoiceCollection, PromiseToPay, DocumentSequence, Invoice, Job, InvoiceEvent, InvoiceItem, InvoiceLink, InvoiceSettings, Lead, Payment, PaymentAllocation, PaymentAttempt, ProviderConnection, ProviderEvent, Refund, ReminderExecution,
+  AiSettings,
+  AiInteraction, ReminderStep, PipelineStage, Prisma, Product, ProductPrice, Quote,
   QuoteAcceptanceCode, QuoteEvent, QuoteItem, QuoteLink,
   Task, TaxRate,
 } from "@/lib/generated/prisma/client";
@@ -43,6 +45,8 @@ interface TenantModelTypes {
   collectionNote: { create: Prisma.CollectionNoteUncheckedCreateInput; row: CollectionNote };
   reminderStep: { create: Prisma.ReminderStepUncheckedCreateInput; row: ReminderStep };
   reminderExecution: { create: Prisma.ReminderExecutionUncheckedCreateInput; row: ReminderExecution };
+  aiSettings: { create: Prisma.AiSettingsUncheckedCreateInput; row: AiSettings };
+  aiInteraction: { create: Prisma.AiInteractionUncheckedCreateInput; row: AiInteraction };
 }
 
 /** Create input without the organization, which tenantDb always sets. */

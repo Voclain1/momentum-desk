@@ -26,6 +26,10 @@ import { listRates } from "@/lib/fx/rates";
 import { deadJobs } from "@/lib/jobs/admin";
 import { parseEnv } from "@/lib/env";
 import { todayIn } from "@/lib/dates";
+import { aiDeps } from "@/lib/ai/server";
+import { aiSettings, aiUsage } from "@/lib/ai/service";
+import { updateAiSettingsAction } from "../ai/actions";
+import { AiSettingsPanel } from "../ai/panels";
 
 export const metadata: Metadata = { title: "Workspace settings — MomentumDesk" };
 
@@ -45,6 +49,11 @@ export default async function SettingsPage() {
     canEdit ? deadJobs(tenantData, organization.id) : Promise.resolve([]),
   ]);
   const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+  const [ai, usage] = await Promise.all([
+    aiSettings(tenantData, organization.id, aiDeps.serverLimit),
+    aiUsage(tenantData, organization.id, organization.timezone),
+  ]);
+  const dollars = new Intl.NumberFormat("en", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 });
   const canSeeProviders = tenant.can("providers:manage");
   const connections = canSeeProviders ? await listConnections(tenantData, organization.id) : [];
   const h = await headers();
@@ -134,6 +143,21 @@ export default async function SettingsPage() {
           rates={rates.map((r) => ({
             id: r.id, quote: r.quote, rate: r.rate.toString(), effectiveOn: isoDay(r.effectiveOn), source: r.source, enteredBy: r.enteredBy?.name ?? null,
           }))}
+        />
+        <AiSettingsPanel
+          canEdit={canEdit}
+          configured={Boolean(aiDeps.provider)}
+          provider={aiDeps.provider ? `${aiDeps.provider.name === "anthropic" ? "Anthropic" : "OpenAI"} ${aiDeps.provider.model}` : null}
+          enabled={ai.enabled}
+          monthlyLimit={ai.monthlyLimit}
+          serverLimit={ai.serverLimit}
+          usage={{
+            requests: usage.requests,
+            failed: usage.failed,
+            tokens: new Intl.NumberFormat("en").format(usage.inputTokens + usage.outputTokens),
+            cost: `${dollars.format(Number(usage.costMicros) / 1_000_000)}${usage.costComplete ? "" : " (some models' prices unknown)"}`,
+          }}
+          action={updateAiSettingsAction}
         />
         <FailedJobsPanel jobs={failed.map((j) => ({ id: j.id, kind: j.kind, key: j.key, lastError: j.lastError, finishedAt: j.finishedAt ? j.finishedAt.toISOString().slice(0, 16).replace("T", " ") : null }))} />
       </section>

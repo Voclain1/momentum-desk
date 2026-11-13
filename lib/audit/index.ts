@@ -88,7 +88,9 @@ export type AuditAction =
   | "promise.resolved"
   | "reminders.settings_updated"
   | "reminders.opted_out"
-  | "reminders.opted_in";
+  | "reminders.opted_in"
+  | "ai.settings_updated"
+  | "collection.message_sent";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

@@ -53,6 +53,7 @@ model User {
   collectionsOwned InvoiceCollection[] @relation("CollectionOwner")
   promisesTaken    PromiseToPay[] @relation("PromiseTakenBy")
   collectionNotes  CollectionNote[] @relation("CollectionNoteAuthor")
+  aiInteractions   AiInteraction[]  @relation("AiInteractionUser")
 
   @@map("user")
 }
@@ -175,6 +176,8 @@ model Organization {
   promises        PromiseToPay[]
   collectionNotes CollectionNote[]
   reminderSteps   ReminderStep[]
+  aiSettings      AiSettings?
+  aiInteractions  AiInteraction[]
   reminders       ReminderExecution[]
 
   @@map("organization")
@@ -1278,4 +1281,50 @@ model ReminderExecution {
   @@unique([invoiceId, offsetDays])
   @@index([organizationId, invoiceId, createdAt])
   @@map("reminderExecution")
+}
+
+/// A workspace's Momentum AI settings (decision D20). Absent means on, with
+/// the server's monthly limit.
+model AiSettings {
+  id             String   @id @default(uuid(7))
+  organizationId String   @unique
+  enabled        Boolean  @default(true)
+  /// Requests per month; null means the server's limit (AI_MONTHLY_LIMIT).
+  monthlyLimit   Int?
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("aiSettings")
+}
+
+/// One AI request: what ran, for whom, and what it cost. Never the prompt
+/// or the AI's text (decision D20); a draft exists only once a person saves it.
+model AiInteraction {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  userId         String?
+  /// e.g. "lead.assist", "quote.assist", "collections.draft".
+  task           String
+  /// The workspace's month in its own timezone, "YYYY-MM": the limit's period.
+  period         String
+  provider       String
+  model          String
+  /// pending, ok, rejected (failed our checks), refused (by the model), error.
+  status         String
+  targetType     String?
+  targetId       String?
+  inputTokens    Int       @default(0)
+  outputTokens   Int       @default(0)
+  /// Estimated cost in millionths of a US dollar; null when the model's price is not known.
+  costMicros     BigInt?
+  errorCode      String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt     DateTime? @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation("AiInteractionUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, period])
+  @@map("aiInteraction")
 }

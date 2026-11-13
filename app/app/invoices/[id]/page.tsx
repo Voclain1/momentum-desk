@@ -14,6 +14,9 @@ import { remindersFor, STOP_LABELS, type StopReason } from "@/lib/reminders/serv
 import { listTeam } from "@/lib/auth/team";
 import { addNoteAction, addPromiseAction, cancelPromiseAction, updateCollectionAction } from "../../receivables/actions";
 import { CollectionPanel } from "../collection-panel";
+import { aiAvailable } from "@/lib/ai/server";
+import { collectionsDraftAction, sendCollectionMessageAction } from "../../ai/actions";
+import { CollectionMessagePanel } from "../../ai/panels";
 import { PROVIDERS } from "@/lib/payments/providers";
 import { leadName } from "@/lib/leads/labels";
 import { formatMoney, money, toDecimalString } from "@/lib/money";
@@ -180,6 +183,16 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
             owed={toDecimalString(money(outstanding, invoice.currency))}
             today={today}
           />
+          {tenant.can("collections:write") && outstanding > 0n ? (
+            <div className="collection-panel">
+              <CollectionMessagePanel
+                recipient={invoice.recipientEmail}
+                aiAvailable={await aiAvailable(organization.id)}
+                draft={collectionsDraftAction.bind(null, invoice.id)}
+                send={sendCollectionMessageAction.bind(null, invoice.id)}
+              />
+            </div>
+          ) : null}
           <ul className="contact-list">
             {collection.promises.map((p) => (
               <li key={p.id}>

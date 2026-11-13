@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { aiAvailable } from "@/lib/ai/server";
+import { quoteAssistAction } from "../../ai/actions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuoteDocument } from "@/app/_documents/quote-document";
@@ -218,6 +220,7 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
         <section className="quote-page">
           <div className="panel settings-panel wide">
             <QuoteBuilder
+            assist={(await aiAvailable(tenant.organization.id)) ? quoteAssistAction : undefined}
               action={updateDraftAction.bind(null, quote.id)}
               version={quote.version}
               options={options}

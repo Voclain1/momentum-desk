@@ -82,6 +82,8 @@ export const LABELS: Record<AuditAction, string> = {
   "reminders.settings_updated": "changed payment reminders",
   "reminders.opted_out": "stopped payment reminders for a customer",
   "reminders.opted_in": "restarted payment reminders for a customer",
+  "ai.settings_updated": "changed the Momentum AI settings",
+  "collection.message_sent": "emailed a customer about an invoice",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

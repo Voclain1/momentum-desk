@@ -65,6 +65,10 @@ export default defineConfig({
         // Provider API calls go to the local stand-in (lib/payments/http.ts).
         PAYMENTS_TEST_API: MOCK_PROVIDERS,
         PROVIDER_SECRETS_KEY: TEST_PROVIDER_SECRETS_KEY,
+        // Momentum AI answers from the same local stand-in (lib/ai/server.ts).
+        AI_PROVIDER: "anthropic",
+        ANTHROPIC_API_KEY: "test-only-not-a-key",
+        AI_TEST_API: MOCK_PROVIDERS,
       },
     },
   ],

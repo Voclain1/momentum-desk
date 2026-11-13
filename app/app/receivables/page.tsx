@@ -6,6 +6,9 @@ import { agingReport, BUCKETS, type Bucket, openReceivables } from "@/lib/receiv
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
 import { NoAccess } from "../_components/no-access";
+import { aiAvailable } from "@/lib/ai/server";
+import { receivablesSummaryAction } from "../ai/actions";
+import { ReceivablesSummaryPanel } from "../ai/panels";
 
 export const metadata: Metadata = { title: "Collections — MomentumDesk" };
 
@@ -38,6 +41,7 @@ export default async function ReceivablesPage({ searchParams }: PageProps<"/app/
         </div>
       </header>
 
+      {(await aiAvailable(tenant.organization.id)) ? <ReceivablesSummaryPanel summarize={receivablesSummaryAction} /> : null}
       <section className="panel" aria-label="Ageing">
         <div className="panel-heading">
           <div>

@@ -59,7 +59,34 @@ const envSchema = z
     .string()
     .refine((value) => Buffer.from(value, "base64").length === 32, { error: "must be 32 bytes, base64 (openssl rand -base64 32)" })
     .optional(),
+  /** Momentum AI provider (decision D20). Unset turns AI off; the app works without it. */
+  AI_PROVIDER: z.enum(["anthropic", "openai"]).optional(),
+  /** Anthropic API key, when AI_PROVIDER is "anthropic". */
+  ANTHROPIC_API_KEY: z.string().min(10).optional(),
+  /** OpenAI API key, when AI_PROVIDER is "openai". */
+  OPENAI_API_KEY: z.string().min(10).optional(),
+  /** Model id. Defaults to claude-opus-5-5 for Anthropic; required for OpenAI. */
+  AI_MODEL: z.string().regex(/^[A-Za-z0-9._:-]+$/, { error: "must be a model id" }).optional(),
+  /** Requests per workspace per month; owners can set a lower limit. */
+  AI_MONTHLY_LIMIT: z.coerce.number().int().min(0).max(100_000).default(200),
+  /**
+   * End-to-end tests only: send AI requests to this local stand-in. Refused
+   * unless APP_URL and the stand-in are localhost.
+   */
+  AI_TEST_API: z.url().optional(),
 })
+  .refine((env) => env.AI_PROVIDER !== "anthropic" || env.ANTHROPIC_API_KEY, {
+    error: 'is required when AI_PROVIDER is "anthropic"',
+    path: ["ANTHROPIC_API_KEY"],
+  })
+  .refine((env) => env.AI_PROVIDER !== "openai" || (env.OPENAI_API_KEY && env.AI_MODEL), {
+    error: 'OPENAI_API_KEY and AI_MODEL are required when AI_PROVIDER is "openai"',
+    path: ["OPENAI_API_KEY"],
+  })
+  .refine((env) => !env.AI_TEST_API || (isLocalUrl(env.APP_URL) && isLocalUrl(env.AI_TEST_API)), {
+    error: "is only allowed for a localhost app and a localhost stand-in",
+    path: ["AI_TEST_API"],
+  })
   .refine((env) => !env.RESEND_API_KEY === !env.EMAIL_FROM, {
     error: "RESEND_API_KEY and EMAIL_FROM must be set together",
     path: ["EMAIL_FROM"],

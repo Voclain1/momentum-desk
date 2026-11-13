@@ -119,6 +119,10 @@ end with its test keys:
 | `PROVIDER_SECRETS_KEY` | step 6 | Yes |
 | `RESEND_API_KEY` | step 3 | Yes |
 | `EMAIL_FROM` | step 3 | No |
+| `AI_PROVIDER` | `anthropic` or `openai` (optional; unset turns Momentum AI off) | No |
+| `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` | the chosen provider's API key | Yes |
+| `AI_MODEL` | optional for Anthropic (default `claude-opus-5-5`); required for OpenAI | No |
+| `AI_MONTHLY_LIMIT` | requests per workspace per month (default 200) | No |
 | `FX_PROVIDER_KEY` | Open Exchange Rates app id (optional; staff can enter rates in Settings) | Yes |
 | `NEXT_PUBLIC_SENTRY_DSN` | step 4 | No |
 | `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | `production` | No |
@@ -190,7 +194,10 @@ update that adds migrations.
 6. In Sentry, confirm the project receives events once the first error occurs
    (Sentry's project setup page can also wait for a first event). Open one and
    check it carries only internal user and workspace ids, never an email.
-7. Point an uptime monitor at `/api/health` (503 means the database is
+7. With AI set up: on a lead, "Summarise and suggest" returns a summary, and
+   Settings → Momentum AI counts the request with its estimated cost. Set a
+   spending limit in the provider's own console too.
+8. Point an uptime monitor at `/api/health` (503 means the database is
    unreachable).
 
 ## If something fails

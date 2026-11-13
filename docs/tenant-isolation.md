@@ -114,6 +114,10 @@ worker the app role sees only the current workspace's jobs
 `reminderExecution` are ordinary tenant tables. A customer stops reminders
 from `/i/{token}` through the same invoice-link token lookup.
 
+`aiSettings` and `aiInteraction` (Momentum AI, D20) are ordinary tenant
+tables. AI tasks read their facts through the same scoped access, so a
+request can only ever be grounded in the caller's own workspace.
+
 Public quote pages (`/q/{token}`) have no session. `lib/tenant/public.ts`
 runs the one query without an organization: it sets the token's SHA-256 for
 its own transaction, and the read-only `quoteLink_token_lookup` policy lets it
