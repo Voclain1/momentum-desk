@@ -1,3 +1,4 @@
+import { documentBrand } from "@/lib/branding/service";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { QuoteDocument } from "@/app/_documents/quote-document";
@@ -44,7 +45,7 @@ export default async function PublicQuotePage({ params }: PageProps<"/q/[token]"
       {view.expired ? (
         <p role="status" className="settings-message error public-banner">This quote has expired. Contact {seller.name} for a new one.</p>
       ) : null}
-      <QuoteDocument quote={quote} seller={seller.name} locale={seller.locale} />
+      <QuoteDocument quote={quote} seller={seller.name} locale={seller.locale} brand={await documentBrand(tenantData, quote.organizationId)} />
       <p className="public-download">
         <a href={`/q/${token}/pdf`} className="link-button" download>Download PDF</a>
       </p>

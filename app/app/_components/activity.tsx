@@ -83,6 +83,7 @@ export const LABELS: Record<AuditAction, string> = {
   "reminders.opted_out": "stopped payment reminders for a customer",
   "reminders.opted_in": "restarted payment reminders for a customer",
   "ai.settings_updated": "changed the Momentum AI settings",
+  "branding.updated": "changed the workspace logo or colour",
   "collection.message_sent": "emailed a customer about an invoice",
 };
 

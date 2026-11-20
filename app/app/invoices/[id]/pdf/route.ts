@@ -1,3 +1,4 @@
+import { pdfSeller } from "@/lib/branding/service";
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { renderInvoicePdf } from "@/lib/documents/invoice-pdf";
 import { pdfResponse } from "@/lib/documents/pdf-response";
@@ -18,7 +19,7 @@ export async function GET(_: Request, { params }: RouteContext<"/app/invoices/[i
   const { id } = await params;
   try {
     const invoice = await getInvoice(tenantData, tenant.organization.id, id);
-    const bytes = await renderInvoicePdf(invoice, { seller: tenant.organization.name, locale: tenant.organization.locale });
+    const bytes = await renderInvoicePdf(invoice, await pdfSeller(tenantData, tenant.organization.id, tenant.organization));
     return pdfResponse(bytes, `${invoice.number ?? "draft-invoice"}.pdf`);
   } catch (error) {
     if (error instanceof RecordNotFoundError) return new Response("Not found", { status: 404 });

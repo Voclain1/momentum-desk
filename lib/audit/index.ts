@@ -90,6 +90,7 @@ export type AuditAction =
   | "reminders.opted_out"
   | "reminders.opted_in"
   | "ai.settings_updated"
+  | "branding.updated"
   | "collection.message_sent";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };

@@ -8,6 +8,7 @@ import {
 import { requireTenant } from "@/lib/tenant/server";
 import { RecentActivity } from "./_components/activity";
 import { MyTasks } from "./_components/my-tasks";
+import { SetupChecklist } from "./_components/setup-checklist";
 
 export default async function DashboardPage() {
   // Checked here as well as in the layout: layouts do not re-run on every navigation.
@@ -28,6 +29,8 @@ export default async function DashboardPage() {
           </button>
         </div>
       </header>
+
+      <SetupChecklist tenant={tenant} />
 
       <section className="hero-row">
         <div>

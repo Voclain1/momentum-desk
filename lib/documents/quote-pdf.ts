@@ -106,7 +106,7 @@ export interface PdfLayout {
 
 export type DocumentPdfData = Omit<QuotePdfData, "number" | "revision" | "status" | "expiresOn" | "acceptedAt" | "issuedOn">;
 
-export async function renderQuotePdf(quote: QuotePdfData, options: { seller: string; locale: string }): Promise<Uint8Array> {
+export async function renderQuotePdf(quote: QuotePdfData, options: PdfSeller): Promise<Uint8Array> {
   const { locale } = options;
   return renderDocumentPdf(quote, {
     title: `Quote ${quote.number}${quote.revision > 1 ? ` (revision ${quote.revision})` : ""}`,
@@ -116,7 +116,17 @@ export async function renderQuotePdf(quote: QuotePdfData, options: { seller: str
   }, options);
 }
 
-export async function renderDocumentPdf(quote: DocumentPdfData, layout: PdfLayout, { seller, locale }: { seller: string; locale: string }): Promise<Uint8Array> {
+/** How the seller appears: name, and optionally its logo and accent colour (lib/branding). */
+export interface PdfSeller {
+  seller: string;
+  locale: string;
+  logo?: { bytes: Uint8Array; type: "image/png" | "image/jpeg" } | null;
+  accentColor?: string | null;
+}
+
+const hexColor = (hex: string) => rgb(parseInt(hex.slice(1, 3), 16) / 255, parseInt(hex.slice(3, 5), 16) / 255, parseInt(hex.slice(5, 7), 16) / 255);
+
+export async function renderDocumentPdf(quote: DocumentPdfData, layout: PdfLayout, { seller, locale, logo, accentColor }: PdfSeller): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
   const [regularBytes, boldBytes] = await loadFonts();
@@ -155,9 +165,18 @@ export async function renderDocumentPdf(quote: DocumentPdfData, layout: PdfLayou
   if (layout.stamp) {
     text(layout.stamp, A4.width - MARGIN, y, { size: 8, font: bold, color: rgb(0.75, 0.33, 0.33), align: "right" });
   }
+  const accent = accentColor ? hexColor(accentColor) : INK;
+  if (logo) {
+    const image = logo.type === "image/png" ? await pdf.embedPng(logo.bytes) : await pdf.embedJpg(logo.bytes);
+    // Fit within 150 × 48 points, keeping its proportions.
+    const scale = Math.min(150 / image.width, 48 / image.height, 1);
+    const height = image.height * scale;
+    page.drawImage(image, { x: MARGIN, y: y - height + 9, width: image.width * scale, height });
+    y -= height + 4;
+  }
   text(seller, MARGIN, y, { size: 11, font: bold });
   y -= 22;
-  text(title, MARGIN, y, { size: 16, font: bold });
+  text(title, MARGIN, y, { size: 16, font: bold, color: accent });
   const facts: [string, string][] = [...layout.facts, ["Currency", quote.currency]];
   // Labels right-aligned against the widest value, so long dates never collide.
   const valueWidth = Math.max(...facts.map(([, value]) => bold.widthOfTextAtSize(value, 9)));

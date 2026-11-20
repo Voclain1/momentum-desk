@@ -178,6 +178,7 @@ model Organization {
   reminderSteps   ReminderStep[]
   aiSettings      AiSettings?
   aiInteractions  AiInteraction[]
+  branding        OrganizationBranding?
   reminders       ReminderExecution[]
 
   @@map("organization")
@@ -1327,4 +1328,24 @@ model AiInteraction {
 
   @@index([organizationId, period])
   @@map("aiInteraction")
+}
+
+/// A workspace's logo and accent colour on its documents and emails
+/// (spec §7.5, decision D39). The logo is kept in the database so the
+/// nightly backup includes it.
+model OrganizationBranding {
+  id             String   @id @default(uuid(7))
+  organizationId String   @unique
+  /// PNG or JPEG, at most 256 KB, checked by its content (lib/branding).
+  logo           Bytes?
+  logoType       String?
+  /// First 16 hex characters of the logo's SHA-256: its public URL changes with it.
+  logoHash       String?
+  /// "#rrggbb", dark enough to read against white.
+  accentColor    String?
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organizationBranding")
 }

@@ -1,3 +1,4 @@
+import { documentBrand } from "@/lib/branding/service";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -74,6 +75,7 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
   const online = isDraft || !tenant.can("payments:read") ? null : await onlineActivity(tenantData, organization.id, invoice.id);
   const providerName = (key: string) => PROVIDERS[key as keyof typeof PROVIDERS]?.name ?? key;
   const canRefund = tenant.can("payments:refund");
+  const brand = await documentBrand(tenantData, organization.id);
   const collecting = invoice.status === "issued" && tenant.can("collections:read");
   const [collection, reminders, team] = collecting
     ? await Promise.all([
@@ -410,7 +412,7 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
                   }}
                 />
               </div>
-              <InvoiceDocument invoice={invoice} seller={organization.name} locale={organization.locale} />
+              <InvoiceDocument invoice={invoice} seller={organization.name} locale={organization.locale} brand={brand} />
             </div>
             {side}
           </section>
@@ -484,7 +486,7 @@ export default async function InvoicePage({ params }: PageProps<"/app/invoices/[
       {header}
       <p className="record-meta">Due {day.format(invoice.dueOn)}</p>
       <section className="quote-page">
-        <InvoiceDocument invoice={invoice} seller={organization.name} locale={organization.locale} />
+        <InvoiceDocument invoice={invoice} seller={organization.name} locale={organization.locale} brand={brand} />
         {side}
       </section>
     </>

@@ -30,6 +30,9 @@ import { aiDeps } from "@/lib/ai/server";
 import { aiSettings, aiUsage } from "@/lib/ai/service";
 import { updateAiSettingsAction } from "../ai/actions";
 import { AiSettingsPanel } from "../ai/panels";
+import { documentBrand } from "@/lib/branding/service";
+import { removeLogoAction, setAccentAction, uploadLogoAction } from "./branding-actions";
+import { BrandingPanel } from "./branding-panel";
 
 export const metadata: Metadata = { title: "Workspace settings — MomentumDesk" };
 
@@ -105,6 +108,14 @@ export default async function SettingsPage() {
             {...settingsOptions()}
           />
         </div>
+        <BrandingPanel
+          canEdit={canEdit}
+          name={organization.name}
+          {...(await documentBrand(tenantData, organization.id))}
+          upload={uploadLogoAction}
+          remove={removeLogoAction}
+          accent={setAccentAction}
+        />
         <TaxRates
           canEdit={canEdit}
           rates={taxRates.map((rate) => ({
