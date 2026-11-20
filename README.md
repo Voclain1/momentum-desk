@@ -81,7 +81,7 @@ End-to-end tests read emails from `e2e/.outbox/emails.jsonl` (`EMAIL_TEST_OUTBOX
 - Collections (invoice page): an owner, pause until a date with a reason, escalate to a person, promises to pay (judged kept or broken by what was actually paid by the date) and internal notes, all audited
 - Payment reminders (`lib/reminders`, Settings): off until an owner turns them on. Steps 3 days before and 1, 7, 14 and 30 days after due, with fixed friendly, firm and final wording that states what is owed on the day. Only the latest due step is sent (never a backlog), with a minimum gap between reminders. Each step is checked again just before sending and stops for payment, void, dispute, pause, escalation, an open promise or opt-out; the invoice page lists every step with its reason. Customers stop reminders from their invoice link; staff can stop or restart them per customer
 
-## M6 (Momentum AI): in progress
+## M6 (Momentum AI): done, pending a check with real provider keys
 
 - Provider-neutral (D20, `lib/ai`): Anthropic or OpenAI behind one interface, chosen by `AI_PROVIDER`; off when unset, and every manual path works without it
 - Tasks (`lib/ai/tasks.ts`), each grounded in the caller's own authorized records and asked for JSON in a fixed schema:
@@ -91,6 +91,17 @@ End-to-end tests read emails from `e2e/.outbox/emails.jsonl` (`EMAIL_TEST_OUTBOX
   - Receivables: a short summary of overdue accounts and where to start
 - Guards: every number in AI text must appear in the facts it was given (`lib/ai/grounding.ts`), catalogue items and invoice numbers must be real, and quantities must come from the request. A failing answer gets one corrected retry, then is discarded. The AI never sends or saves anything
 - Usage (Settings → Momentum AI): a monthly request limit per workspace (owners and admins can lower it or turn AI off), with tokens and estimated cost. Only metadata is kept, never prompts or AI text
+
+## M7 (global pilot readiness): in progress
+
+- Branding (D39): logo and accent colour on documents, PDFs, public pages and emails; a setup checklist on the dashboard for the optional onboarding steps
+- Live dashboard (per currency, by role) and a payments list, replacing the demo preview
+- Product analytics (D41): the spec's lead-to-cash events in our own database (ids only) and a metrics page
+- HTML email templates made from each email's text
+- Terms and privacy drafts for legal review (D40)
+- Security review (`docs/security-review.md`): dependency upgrades, rate limits, security headers; axe accessibility checks and a phone-width layout test
+- Operations (`docs/runbooks.md`): monitoring including the background worker (`/api/health?strict=1`), incidents, support, and a recorded restore drill
+- Still to do: legal review of the drafts; the visual design system; a pilot with businesses in more than one market
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.
 

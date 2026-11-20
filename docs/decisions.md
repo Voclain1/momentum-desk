@@ -73,3 +73,4 @@ Status values: **Accepted** (in force), **Proposed** (recommended, awaiting conf
 - 2026-11-13 — M5 done (except design): receivables, collections, reminders, exchange rates and background jobs; VPS deployment with Docker Compose and Caddy (D9), go-live rewritten, Vercel build script removed.
 - 2026-11-13 — M6 started. D20 decided by the owner: both providers, choosable; monthly limit owners can lower; metadata only.
 - 2026-11-20 — M7 started. D39 (logo in PostgreSQL), D40 (legal drafts for review) and D41 (own-database analytics) decided by the owner.
+- 2026-11-20 — M7 work: branding, live dashboard, analytics, email templates, legal drafts, security and accessibility review (Next.js upgraded for critical advisories), runbooks and a restore drill.
