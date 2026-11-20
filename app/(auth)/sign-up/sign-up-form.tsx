@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient, authErrorMessage } from "@/lib/auth/client";
@@ -47,6 +48,10 @@ export function SignUpForm({ next }: { next: string }) {
         maxLength={MAX_PASSWORD_LENGTH}
         hint={`At least ${MIN_PASSWORD_LENGTH} characters. A short phrase works well.`}
       />
+      <p className="text-xs text-[#5c746c]">
+        By creating an account you agree to the <Link href="/terms" className="underline">terms</Link> and confirm you have read the{" "}
+        <Link href="/privacy" className="underline">privacy policy</Link>.
+      </p>
       <SubmitButton pending={pending}>Create account</SubmitButton>
     </form>
   );

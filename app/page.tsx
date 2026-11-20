@@ -53,7 +53,8 @@ export default function MarketingHome() {
       </section>
 
       <footer className="mx-auto w-full max-w-5xl px-4 py-6 text-xs text-[#739087] sm:px-6">
-        Early access · Pilot in progress
+        Early access · Pilot in progress · <Link href="/terms" className="underline">Terms</Link> ·{" "}
+        <Link href="/privacy" className="underline">Privacy</Link>
       </footer>
     </main>
   );

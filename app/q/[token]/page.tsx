@@ -58,6 +58,7 @@ export default async function PublicQuotePage({ params }: PageProps<"/q/[token]"
           pendingCode={view.pendingCode}
         />
       ) : null}
+      <p className="public-download form-hint">Sent with MomentumDesk · <a href="/privacy">Privacy</a></p>
     </main>
   );
 }

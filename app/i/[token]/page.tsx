@@ -69,6 +69,7 @@ export default async function PublicInvoicePage({ params, searchParams }: PagePr
         <a href={`/i/${token}/pdf`} className="link-button" download>Download PDF</a>
       </p>
       {status === "void" || status === "paid" ? null : <StopReminders action={stopRemindersAction.bind(null, token)} />}
+      <p className="public-download form-hint">Sent with MomentumDesk · <a href="/privacy">Privacy</a></p>
     </main>
   );
 }
