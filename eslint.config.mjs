@@ -21,6 +21,8 @@ const eslintConfig = defineConfig([
       "lib/jobs/queue-core.ts",
       // The worker process's entry point: wires the database into the queue.
       "scripts/worker.ts",
+      // Rate-limit counters: hashed keys, no organization data.
+      "lib/security/**",
       // Health check: a bare SELECT 1, no organization data.
       "lib/observability/health.ts",
       "test/**",

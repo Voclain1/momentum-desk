@@ -1,3 +1,4 @@
+import { emailBrand } from "@/lib/branding/service";
 import { randomBytes } from "node:crypto";
 import { recordAudit } from "@/lib/audit";
 import type { EmailSender } from "@/lib/email";
@@ -74,6 +75,7 @@ export async function emailInvoice(
         "This link is private to you; anyone who has it can see the invoice.",
       ].join("\n"),
       idempotencyKey: `invoice-${invoiceId}-${hashToken(token).slice(0, 16)}`,
+      brand: await emailBrand(tenant, actor.organizationId, seller, appUrl),
     });
     return { sentTo: invoice.recipientEmail };
   });

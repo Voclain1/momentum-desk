@@ -18,11 +18,11 @@ export default async function SignUpPage({ searchParams }: PageProps<"/sign-up">
         {invited ? "Then accept your invitation." : "Then set up your workspace in a minute."}
       </Heading>
       <SignUpForm next={next} />
-      <p className="mt-6 text-center text-sm text-[#718087]">
+      <p className="mt-6 text-center text-sm text-[#647178]">
         Already have an account?{" "}
         <Link
           href={requested ? `/sign-in?next=${encodeURIComponent(next)}` : "/sign-in"}
-          className="font-semibold text-[#167a62]"
+          className="font-semibold text-[#167a62] underline"
         >
           Sign in
         </Link>

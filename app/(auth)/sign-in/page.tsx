@@ -19,11 +19,11 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
         </div>
       ) : null}
       <SignInForm next={next} />
-      <p className="mt-6 text-center text-sm text-[#718087]">
+      <p className="mt-6 text-center text-sm text-[#647178]">
         New to MomentumDesk?{" "}
         <Link
           href={next === "/app" ? "/sign-up" : `/sign-up?next=${encodeURIComponent(next)}`}
-          className="font-semibold text-[#167a62]"
+          className="font-semibold text-[#167a62] underline"
         >
           Create an account
         </Link>

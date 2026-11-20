@@ -42,6 +42,8 @@ export interface Workspace {
     defaultInvoiceCurrency: string | null;
     /** For the settings form: saves must name the version they started from. */
     settingsVersion: number;
+    /** Set while the workspace is closing (D25): when it will be deleted. */
+    deleteAfter: Date | null;
   };
   role: Role;
 }
@@ -88,6 +90,7 @@ export const requireWorkspace = cache(async (): Promise<Workspace> => {
       defaultLanguage: organization.defaultLanguage,
       defaultInvoiceCurrency: organization.defaultInvoiceCurrency,
       settingsVersion: organization.settingsVersion,
+      deleteAfter: organization.deleteAfter,
     },
     role: membership.role as Role,
   };

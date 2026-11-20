@@ -1,3 +1,4 @@
+import { trackAudited } from "@/lib/analytics/events";
 import type { TenantDb } from "@/lib/tenant/core";
 
 /**
@@ -90,7 +91,12 @@ export type AuditAction =
   | "reminders.opted_out"
   | "reminders.opted_in"
   | "ai.settings_updated"
-  | "collection.message_sent";
+  | "branding.updated"
+  | "collection.message_sent"
+  | "workspace.exported"
+  | "customer.erased"
+  | "workspace.closure_requested"
+  | "workspace.closure_cancelled";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -104,7 +110,9 @@ export interface AuditEntry {
   metadata?: { [key: string]: JsonValue };
 }
 
-export function recordAudit(tenant: TenantDb, entry: AuditEntry) {
+export async function recordAudit(tenant: TenantDb, entry: AuditEntry) {
+  // Product analytics that follow from this change, in the same transaction (lib/analytics).
+  await trackAudited(tenant, entry);
   return tenant.auditLog.create({
     data: {
       action: entry.action,

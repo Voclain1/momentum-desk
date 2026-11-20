@@ -184,7 +184,7 @@ describe("emailing a customer about an invoice", () => {
     const s = await setup();
     const invoice = await s.invoice();
     const outbox = createMemoryEmailSender();
-    const deps = { email: outbox, appUrl: "https://momentumdesk.app" };
+    const deps = { email: outbox, appUrl: "https://momentumdesk.app", seller: "Sun Power" };
     const message = { subject: "Invoice INV-0001", body: "Hello, ₦100,000.00 is outstanding on INV-0001. Sun Power", aiDrafted: true };
     expect(await sendCollectionMessage(data, s.actor, invoice.id, message, deps)).toEqual({ sentTo: "pay@okafor.ng" });
     expect(outbox.sent[0]).toMatchObject({ to: "pay@okafor.ng", subject: "Invoice INV-0001" });

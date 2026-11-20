@@ -15,7 +15,7 @@ function Label({ children, hint }: { children: React.ReactNode; hint?: React.Rea
   return (
     <>
       <span className="mb-1.5 block text-sm font-semibold">{children}</span>
-      {hint ? <span className="-mt-1 mb-1.5 block text-xs text-[#718087]">{hint}</span> : null}
+      {hint ? <span className="-mt-1 mb-1.5 block text-xs text-[#647178]">{hint}</span> : null}
     </>
   );
 }
@@ -241,7 +241,7 @@ export function OnboardingForm({
           ))}
         </datalist>
         {preview ? (
-          <span className="mt-1.5 block text-xs text-[#718087]">
+          <span className="mt-1.5 block text-xs text-[#647178]">
             Amounts will look like <strong className="text-[#172126]">{preview}</strong>
           </span>
         ) : null}

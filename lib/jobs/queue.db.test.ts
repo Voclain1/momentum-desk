@@ -12,10 +12,11 @@ import { type JobHandler, runDueJobs, scheduleDaily, type WorkerDeps } from "./w
 
 const db = createTestDb();
 const data = createTenantData(db);
-let now = new Date("2026-11-13T10:00:00Z");
+// The worker's clock starts at the real time: jobs enqueued without runAt are due from the database's now().
+let now = new Date();
 
 beforeEach(async () => {
-  now = new Date("2026-11-13T10:00:00Z");
+  now = new Date(Math.ceil(Date.now() / 1000) * 1000 + 1000);
   await resetDatabase();
 });
 afterAll(() => Promise.all([db.$disconnect(), disconnectOwnerDb()]));
@@ -77,7 +78,7 @@ describe("the job queue", () => {
     await data.transaction(b.organizationId, async (t) => {
       await enqueue(t, { kind: "test.flaky", key: "f" });
       await enqueue(t, { kind: "test.broken", key: "x", maxAttempts: 2 });
-      await enqueue(t, { kind: "test.later", key: "l", runAt: new Date("2026-11-14T00:00:00Z") });
+      await enqueue(t, { kind: "test.later", key: "l", runAt: new Date(now.getTime() + 24 * 3_600_000) });
     });
 
     expect(await runDueJobs(deps(handlers))).toEqual({ ran: 3, succeeded: 1, retried: 2, dead: 0 });

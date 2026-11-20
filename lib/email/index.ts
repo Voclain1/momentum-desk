@@ -9,6 +9,9 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { isLocalUrl } from "@/lib/env";
 import { createResendEmailSender } from "./resend";
+import { type EmailBrand, renderEmailHtml } from "./template";
+
+export type { EmailBrand };
 
 export interface EmailMessage {
   to: string;
@@ -16,6 +19,8 @@ export interface EmailMessage {
   text: string;
   /** Stops a retried request from sending the same email twice. */
   idempotencyKey?: string;
+  /** The business an email about its documents comes from (lib/email/template.ts). */
+  brand?: EmailBrand;
 }
 
 export interface EmailSender {
@@ -59,9 +64,10 @@ export function createMemoryEmailSender() {
 /** End-to-end tests: append each message to a file as one JSON line. */
 export function createFileEmailSender(path: string): EmailSender {
   return {
-    async send({ to, subject, text }) {
+    async send(message) {
+      const { to, subject, text } = message;
       await mkdir(dirname(path), { recursive: true });
-      await appendFile(path, JSON.stringify({ to, subject, text, at: new Date().toISOString() }) + "\n");
+      await appendFile(path, JSON.stringify({ to, subject, text, html: renderEmailHtml(message), at: new Date().toISOString() }) + "\n");
     },
   };
 }

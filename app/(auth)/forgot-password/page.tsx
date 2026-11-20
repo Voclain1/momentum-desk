@@ -13,7 +13,7 @@ export default function ForgotPasswordPage() {
       </Heading>
       <ForgotPasswordForm />
       <p className="mt-6 text-center text-sm">
-        <Link href="/sign-in" className="font-semibold text-[#167a62]">
+        <Link href="/sign-in" className="font-semibold text-[#167a62] underline">
           Back to sign in
         </Link>
       </p>

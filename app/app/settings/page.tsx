@@ -30,6 +30,11 @@ import { aiDeps } from "@/lib/ai/server";
 import { aiSettings, aiUsage } from "@/lib/ai/service";
 import { updateAiSettingsAction } from "../ai/actions";
 import { AiSettingsPanel } from "../ai/panels";
+import { documentBrand } from "@/lib/branding/service";
+import { removeLogoAction, setAccentAction, uploadLogoAction } from "./branding-actions";
+import { BrandingPanel } from "./branding-panel";
+import { cancelClosureAction, requestClosureAction } from "./closure-actions";
+import { ClosurePanel } from "./closure-panel";
 
 export const metadata: Metadata = { title: "Workspace settings — MomentumDesk" };
 
@@ -105,6 +110,14 @@ export default async function SettingsPage() {
             {...settingsOptions()}
           />
         </div>
+        <BrandingPanel
+          canEdit={canEdit}
+          name={organization.name}
+          {...(await documentBrand(tenantData, organization.id))}
+          upload={uploadLogoAction}
+          remove={removeLogoAction}
+          accent={setAccentAction}
+        />
         <TaxRates
           canEdit={canEdit}
           rates={taxRates.map((rate) => ({
@@ -159,6 +172,25 @@ export default async function SettingsPage() {
           }}
           action={updateAiSettingsAction}
         />
+        {tenant.can("data:export") ? (
+          <section className="panel contacts-panel" aria-label="Your data">
+            <div className="panel-heading">
+              <div>
+                <h3>Your data</h3>
+                <p>Everything in this workspace as CSV files, with PDFs of every issued quote and invoice, in one ZIP file. Downloads are logged.</p>
+              </div>
+              <a href="/app/export" className="new-button link-as-button" download>Download everything</a>
+            </div>
+          </section>
+        ) : null}
+        {tenant.can("ownership:manage") ? (
+          <ClosurePanel
+            name={organization.name}
+            deleteAfter={organization.deleteAfter ? new Intl.DateTimeFormat(organization.locale, { dateStyle: "long", timeZone: organization.timezone }).format(organization.deleteAfter) : null}
+            request={requestClosureAction}
+            cancel={cancelClosureAction}
+          />
+        ) : null}
         <FailedJobsPanel jobs={failed.map((j) => ({ id: j.id, kind: j.kind, key: j.key, lastError: j.lastError, finishedAt: j.finishedAt ? j.finishedAt.toISOString().slice(0, 16).replace("T", " ") : null }))} />
       </section>
     </>

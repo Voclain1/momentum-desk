@@ -1,3 +1,5 @@
+import { emailBrand } from "@/lib/branding/service";
+import { track } from "@/lib/analytics/events";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
@@ -215,6 +217,7 @@ export async function sendReminder(data: TenantData, organizationId: string, exe
       data: { status: "sent", amountMinor: owedMinor, sentTo: invoice.recipientEmail, completedAt: now },
     });
     if (count !== 1) return "already";
+    await track(tenant, "reminder_sent", { entityType: "reminder", entityId: executionId, at: now });
     const message = reminderEmail(execution.tone as Tone, {
       seller: deps.seller,
       number: invoice.number!,
@@ -224,7 +227,10 @@ export async function sendReminder(data: TenantData, organizationId: string, exe
       link: new URL(invoicePath(token), deps.appUrl).toString(),
       recipient: invoice.recipientName,
     });
-    await deps.email.send({ to: invoice.recipientEmail!, ...message, idempotencyKey: `reminder-${executionId}` });
+    await deps.email.send({
+      to: invoice.recipientEmail!, ...message, idempotencyKey: `reminder-${executionId}`,
+      brand: await emailBrand(tenant, organizationId, deps.seller, deps.appUrl),
+    });
     return "sent";
   });
 }

@@ -1,4 +1,4 @@
-import { DocumentView, type DocumentData } from "./document-view";
+import { type DocumentBrand, DocumentView, type DocumentData } from "./document-view";
 
 export interface QuoteDocumentData extends DocumentData {
   number: string;
@@ -8,7 +8,7 @@ export interface QuoteDocumentData extends DocumentData {
 }
 
 /** A quote as the customer sees it (spec §7.5). */
-export function QuoteDocument({ quote, seller, locale }: { quote: QuoteDocumentData; seller: string; locale: string }) {
+export function QuoteDocument({ quote, seller, locale, brand }: { brand?: DocumentBrand; quote: QuoteDocumentData; seller: string; locale: string }) {
   const name = `Quote ${quote.number}`;
   return (
     <DocumentView
@@ -18,6 +18,7 @@ export function QuoteDocument({ quote, seller, locale }: { quote: QuoteDocumentD
       document={quote}
       seller={seller}
       locale={locale}
+      brand={brand}
     />
   );
 }

@@ -197,8 +197,9 @@ update that adds migrations.
 7. With AI set up: on a lead, "Summarise and suggest" returns a summary, and
    Settings → Momentum AI counts the request with its estimated cost. Set a
    spending limit in the provider's own console too.
-8. Point an uptime monitor at `/api/health` (503 means the database is
-   unreachable).
+8. Point an uptime monitor at `/api/health?strict=1` (503 means the
+   database is unreachable or no background worker is running), then go
+   through the monitoring list in `docs/runbooks.md`.
 
 ## If something fails
 

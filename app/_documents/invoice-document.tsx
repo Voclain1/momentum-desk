@@ -1,5 +1,5 @@
 import { formatMoney, money } from "@/lib/money";
-import { DocumentView, type DocumentData } from "./document-view";
+import { type DocumentBrand, DocumentView, type DocumentData } from "./document-view";
 
 export interface InvoiceDocumentData extends DocumentData {
   number: string | null;
@@ -10,7 +10,7 @@ export interface InvoiceDocumentData extends DocumentData {
 }
 
 /** An invoice as the customer sees it (spec §7.6), with what is still owed. */
-export function InvoiceDocument({ invoice, seller, locale }: { invoice: InvoiceDocumentData; seller: string; locale: string }) {
+export function InvoiceDocument({ invoice, seller, locale, brand }: { brand?: DocumentBrand; invoice: InvoiceDocumentData; seller: string; locale: string }) {
   const show = (minor: bigint) => formatMoney(money(minor, invoice.currency), locale);
   const name = invoice.number ? `Invoice ${invoice.number}` : "Draft invoice";
   const outstanding = invoice.totalMinor - invoice.paidMinor;
@@ -22,6 +22,7 @@ export function InvoiceDocument({ invoice, seller, locale }: { invoice: InvoiceD
       document={invoice}
       seller={seller}
       locale={locale}
+      brand={brand}
       after={
         <>
           {invoice.paidMinor > 0n ? (

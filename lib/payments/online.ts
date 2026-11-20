@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics/events";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
 import { dateValue, todayIn } from "@/lib/dates";
@@ -99,6 +100,7 @@ export async function startCheckout(
         payerEmail: email,
       },
     });
+    await track(tenant, "payment_started", { entityType: "paymentAttempt", entityId: attempt.id, once: false, key: attempt.id });
     return { invoice, connection, attempt } as const;
   });
   if ("error" in prepared) return { ok: false, message: prepared.error! };

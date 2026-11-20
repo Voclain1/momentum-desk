@@ -29,6 +29,12 @@ export interface DocumentData {
   }[];
 }
 
+/** The seller's logo and accent colour (lib/branding), when set. */
+export interface DocumentBrand {
+  logoUrl: string | null;
+  accentColor: string | null;
+}
+
 /**
  * A document as the customer sees it. Amounts are in the document's own
  * currency only, in the given locale (spec §5.5). `facts` are the dated
@@ -42,7 +48,9 @@ export function DocumentView({
   seller,
   locale,
   after,
+  brand,
 }: {
+  brand?: DocumentBrand;
   label: string;
   title: string;
   facts: [string, Date | string][];
@@ -57,9 +65,15 @@ export function DocumentView({
   const inclusive = document.taxMode === "inclusive";
 
   return (
-    <article className="quote-document" aria-label={label}>
+    <article
+      className="quote-document"
+      aria-label={label}
+      style={brand?.accentColor ? ({ "--document-accent": brand.accentColor } as React.CSSProperties) : undefined}
+    >
       <header className="quote-document-head">
         <div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a small stored logo, served with its own long cache */}
+          {brand?.logoUrl ? <img className="quote-logo" src={brand.logoUrl} alt={`${seller} logo`} /> : null}
           <p className="quote-seller">{seller}</p>
           <h2>{title}</h2>
         </div>

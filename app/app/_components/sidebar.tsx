@@ -31,13 +31,6 @@ export function Sidebar({ workspace }: { workspace: Workspace }) {
       </div>
       <NavLinks />
       <div className="sidebar-spacer" />
-      <div className="ai-card">
-        <strong>
-          <span aria-hidden>✦</span> Momentum AI
-        </strong>
-        <p>5 actions could move revenue forward today.</p>
-        <button type="button">Review suggestions</button>
-      </div>
       <Link className="settings" href="/app/team">
         <span aria-hidden>☷</span> <span>Team</span>
       </Link>

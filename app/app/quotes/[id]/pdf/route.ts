@@ -1,3 +1,4 @@
+import { pdfSeller } from "@/lib/branding/service";
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { pdfResponse, quoteFilename } from "@/lib/documents/pdf-response";
 import { renderQuotePdf } from "@/lib/documents/quote-pdf";
@@ -18,7 +19,7 @@ export async function GET(_: Request, { params }: RouteContext<"/app/quotes/[id]
   const { id } = await params;
   try {
     const quote = await getQuote(tenantData, tenant.organization.id, id);
-    const bytes = await renderQuotePdf(quote, { seller: tenant.organization.name, locale: tenant.organization.locale });
+    const bytes = await renderQuotePdf(quote, await pdfSeller(tenantData, tenant.organization.id, tenant.organization));
     return pdfResponse(bytes, quoteFilename(quote));
   } catch (error) {
     if (error instanceof RecordNotFoundError) return new Response("Not found", { status: 404 });

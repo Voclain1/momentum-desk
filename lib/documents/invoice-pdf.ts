@@ -1,6 +1,6 @@
 import { formatMoney, money } from "@/lib/money";
 import { dateText } from "./present";
-import { type DocumentPdfData, renderDocumentPdf } from "./quote-pdf";
+import { type DocumentPdfData, type PdfSeller, renderDocumentPdf } from "./quote-pdf";
 
 /** An invoice as a PDF (spec §7.6): the shared layout plus paid, balance due and how to pay. */
 
@@ -14,7 +14,7 @@ export interface InvoicePdfData extends DocumentPdfData {
   voidedAt: Date | null;
 }
 
-export async function renderInvoicePdf(invoice: InvoicePdfData, options: { seller: string; locale: string }): Promise<Uint8Array> {
+export async function renderInvoicePdf(invoice: InvoicePdfData, options: PdfSeller): Promise<Uint8Array> {
   const { locale } = options;
   const show = (minor: bigint) => formatMoney(money(minor, invoice.currency), locale);
   const outstanding = invoice.totalMinor - invoice.paidMinor;

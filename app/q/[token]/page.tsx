@@ -1,3 +1,6 @@
+import { TooManyRequests } from "@/app/_documents/too-many";
+import { rateLimit } from "@/lib/security/server";
+import { documentBrand } from "@/lib/branding/service";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { QuoteDocument } from "@/app/_documents/quote-document";
@@ -16,6 +19,8 @@ export const metadata: Metadata = {
 
 export default async function PublicQuotePage({ params }: PageProps<"/q/[token]">) {
   const { token } = await params;
+  const limited = await rateLimit("documentView");
+  if (!limited.allowed) return <TooManyRequests retryAfter={limited.retryAfter} />;
   const view = await openQuote({ data: tenantData, links: publicLinks, email: emailSender }, token, await visitorFrom());
   // Unknown, revoked and draft links all look the same.
   if (view.state === "invalid") notFound();
@@ -44,7 +49,7 @@ export default async function PublicQuotePage({ params }: PageProps<"/q/[token]"
       {view.expired ? (
         <p role="status" className="settings-message error public-banner">This quote has expired. Contact {seller.name} for a new one.</p>
       ) : null}
-      <QuoteDocument quote={quote} seller={seller.name} locale={seller.locale} />
+      <QuoteDocument quote={quote} seller={seller.name} locale={seller.locale} brand={await documentBrand(tenantData, quote.organizationId)} />
       <p className="public-download">
         <a href={`/q/${token}/pdf`} className="link-button" download>Download PDF</a>
       </p>
@@ -57,6 +62,7 @@ export default async function PublicQuotePage({ params }: PageProps<"/q/[token]"
           pendingCode={view.pendingCode}
         />
       ) : null}
+      <p className="public-download form-hint">Sent with MomentumDesk · <a href="/privacy">Privacy</a></p>
     </main>
   );
 }

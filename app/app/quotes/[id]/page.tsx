@@ -1,3 +1,4 @@
+import { documentBrand } from "@/lib/branding/service";
 import type { Metadata } from "next";
 import { aiAvailable } from "@/lib/ai/server";
 import { quoteAssistAction } from "../../ai/actions";
@@ -267,7 +268,7 @@ export default async function QuotePage({ params }: PageProps<"/app/quotes/[id]"
       {header}
       <p className="record-meta">Valid until {day.format(quote.expiresOn)}</p>
       <section className="quote-page">
-        <QuoteDocument quote={quote} seller={organization.name} locale={organization.locale} />
+        <QuoteDocument quote={quote} seller={organization.name} locale={organization.locale} brand={await documentBrand(tenantData, organization.id)} />
         {side}
       </section>
     </>

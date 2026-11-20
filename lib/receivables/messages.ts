@@ -1,3 +1,4 @@
+import { emailBrand } from "@/lib/branding/service";
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
@@ -25,7 +26,7 @@ export async function sendCollectionMessage(
   actor: { organizationId: string; userId: string },
   invoiceId: string,
   input: unknown,
-  deps: { email: EmailSender; appUrl: string },
+  deps: { email: EmailSender; appUrl: string; seller: string },
 ) {
   const parsed = messageSchema.safeParse(input);
   if (!parsed.success) throw new InputValidationError(Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message])));
@@ -50,6 +51,7 @@ export async function sendCollectionMessage(
       subject,
       text: `${body}\n\nView the invoice, pay or download it: ${link}`,
       idempotencyKey: `collection-message-${randomUUID()}`,
+      brand: await emailBrand(tenant, actor.organizationId, deps.seller, deps.appUrl),
     });
     return { sentTo: invoice.recipientEmail };
   });

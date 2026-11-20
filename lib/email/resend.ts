@@ -1,3 +1,4 @@
+import { renderEmailHtml } from "./template";
 import type { EmailMessage, EmailSender } from "./index";
 
 /**
@@ -26,7 +27,8 @@ export interface ResendOptions {
 
 export function createResendEmailSender({ apiKey, from, fetch: doFetch = fetch }: ResendOptions): EmailSender {
   return {
-    async send({ to, subject, text, idempotencyKey }: EmailMessage) {
+    async send(message: EmailMessage) {
+      const { to, subject, text, idempotencyKey } = message;
       let response: Response;
       try {
         response = await doFetch(RESEND_ENDPOINT, {
@@ -37,7 +39,7 @@ export function createResendEmailSender({ apiKey, from, fetch: doFetch = fetch }
             // Resend ignores a repeat of the same key for 24 hours.
             ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
           },
-          body: JSON.stringify({ from, to: [to], subject, text }),
+          body: JSON.stringify({ from, to: [to], subject, text, html: renderEmailHtml(message) }),
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
       } catch (error) {
