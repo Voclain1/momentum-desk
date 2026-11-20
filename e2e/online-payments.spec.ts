@@ -109,7 +109,16 @@ test("a customer pays an invoice online through Paystack; duplicate webhooks cha
   await expect(pill(page)).toHaveText("Partly paid");
   await expect(payment).toContainText("Refund ₦15,000.00 processing through Paystack · Second visit not needed");
   await payment.getByRole("button", { name: "Check status" }).click();
-  await expect(page.getByText("Refund succeeded.")).toBeVisible();
+  // The page refreshes with the settled refund (the button, and its own message, go away with it).
+  await expect(payment).toContainText("Refund ₦15,000.00 refunded through Paystack");
   await page.reload();
   await expect(payment).toContainText("Refund ₦15,000.00 refunded through Paystack");
+
+  // The live dashboard and the payments list show it, in its own currency.
+  await page.goto("/app");
+  await expect(page.getByRole("region", { name: "Key figures" }).getByRole("link", { name: /Collected this month/ })).toContainText("₦45,000.00");
+  await page.goto("/app/payments");
+  const row = page.getByRole("row").filter({ hasText: "Eze Stores" });
+  await expect(row).toContainText("Paystack · Card");
+  await expect(row).toContainText("₦45,000.00 · ₦15,000.00 refunded");
 });
