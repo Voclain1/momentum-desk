@@ -62,3 +62,12 @@ export async function failJob(db: DbClient, job: Job, error: unknown, now: Date)
 export async function organizationIds(db: DbClient): Promise<string[]> {
   return (await db.organization.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map((o) => o.id);
 }
+
+/** Records that a worker is alive (read by the health check). */
+export async function heartbeat(db: DbClient, workerId: string, now: Date) {
+  await db.$executeRaw`
+    INSERT INTO "workerHeartbeat" ("workerId", "lastSeenAt") VALUES (${workerId}, ${now})
+    ON CONFLICT ("workerId") DO UPDATE SET "lastSeenAt" = EXCLUDED."lastSeenAt"`;
+  // Workers that stopped a day ago are gone for good.
+  await db.$executeRaw`DELETE FROM "workerHeartbeat" WHERE "lastSeenAt" < ${new Date(now.getTime() - 86_400_000)}`;
+}

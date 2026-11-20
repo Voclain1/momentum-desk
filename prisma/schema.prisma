@@ -1384,3 +1384,12 @@ model RateLimitBucket {
   @@index([windowStart])
   @@map("rateLimitBucket")
 }
+
+/// Each background worker's last sign of life (D18), for the health check.
+/// Not organization data.
+model WorkerHeartbeat {
+  workerId   String   @id
+  lastSeenAt DateTime @db.Timestamptz(3)
+
+  @@map("workerHeartbeat")
+}
