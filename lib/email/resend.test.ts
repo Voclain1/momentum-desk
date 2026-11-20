@@ -23,7 +23,7 @@ describe("createResendEmailSender", () => {
     expect(init?.method).toBe("POST");
     expect(init?.headers).toMatchObject({ Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" });
     expect(init?.headers).not.toHaveProperty("Idempotency-Key");
-    expect(JSON.parse(String(init?.body))).toEqual({ from: FROM, to: ["ada@example.com"], subject: "Hello", text: "Body" });
+    expect(JSON.parse(String(init?.body))).toEqual({ from: FROM, to: ["ada@example.com"], subject: "Hello", text: "Body", html: expect.stringContaining("<p style=\"margin:0 0 16px\">Body</p>") });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 

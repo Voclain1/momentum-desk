@@ -1,3 +1,4 @@
+import { emailBrand } from "@/lib/branding/service";
 import { track } from "@/lib/analytics/events";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -226,7 +227,10 @@ export async function sendReminder(data: TenantData, organizationId: string, exe
       link: new URL(invoicePath(token), deps.appUrl).toString(),
       recipient: invoice.recipientName,
     });
-    await deps.email.send({ to: invoice.recipientEmail!, ...message, idempotencyKey: `reminder-${executionId}` });
+    await deps.email.send({
+      to: invoice.recipientEmail!, ...message, idempotencyKey: `reminder-${executionId}`,
+      brand: await emailBrand(tenant, organizationId, deps.seller, deps.appUrl),
+    });
     return "sent";
   });
 }

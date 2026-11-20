@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { recordAudit } from "@/lib/audit";
 import { InputValidationError } from "@/lib/errors";
-import type { TenantData } from "@/lib/tenant/core";
+import type { TenantData, TenantDb } from "@/lib/tenant/core";
 
 /**
  * A workspace's logo and accent colour (spec §7.5 branded documents,
@@ -111,4 +111,14 @@ export async function pdfSeller(data: TenantData, organizationId: string, seller
 export async function documentBrand(data: TenantData, organizationId: string): Promise<{ logoUrl: string | null; accentColor: string | null }> {
   const { logo, accentColor } = await getBranding(data, organizationId);
   return { logoUrl: logo ? logoPath(organizationId, logo.hash) : null, accentColor };
+}
+
+/** The brand on emails about a workspace's documents: absolute logo URL (lib/email/template.ts). */
+export async function emailBrand(tenant: TenantDb, organizationId: string, name: string, appUrl: string) {
+  const row = await tenant.organizationBranding.findFirst({ select: { logoHash: true, accentColor: true } });
+  return {
+    name,
+    logoUrl: row?.logoHash ? new URL(logoPath(organizationId, row.logoHash), appUrl).toString() : null,
+    accentColor: row?.accentColor ?? null,
+  };
 }

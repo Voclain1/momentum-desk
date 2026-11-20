@@ -81,10 +81,10 @@ export async function collectionsDraftAction(invoiceId: string, tone: string): P
 }
 
 export async function sendCollectionMessageAction(invoiceId: string, message: { subject: string; body: string; aiDrafted: boolean }): Promise<AiResult<{ sentTo: string }>> {
-  return run("collections:write", async ({ actor }) => {
+  return run("collections:write", async ({ actor, context }) => {
     const h = await headers();
     const appUrl = publicOrigin(`${h.get("x-forwarded-proto") ?? "http"}://${h.get("x-forwarded-host") ?? h.get("host") ?? "localhost"}`);
-    const sent = await sendCollectionMessage(tenantData, actor, invoiceId, message, { email: emailSender, appUrl });
+    const sent = await sendCollectionMessage(tenantData, actor, invoiceId, message, { email: emailSender, appUrl, seller: context.seller });
     revalidatePath(`/app/invoices/${invoiceId}`);
     return sent;
   });
