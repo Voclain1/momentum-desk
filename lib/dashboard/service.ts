@@ -63,7 +63,8 @@ export type AttentionItem = {
   amount: { currency: string; amountMinor: bigint } | null;
   /**
    * Lower is more urgent. Groups first (broken promises, overdue invoices,
-   * accepted quotes to invoice, quotes about to expire, late follow-ups),
+   * accepted quotes to invoice, quotes about to expire, invoices due soon,
+   * late follow-ups),
    * then the most urgent within each group.
    */
   rank: number;
@@ -87,6 +88,19 @@ export async function attention(data: TenantData, organizationId: string, today:
       items.push({
         kind: "Invoice", title: i.customer.displayName, reason: `${i.number} is ${late} ${late === 1 ? "day" : "days"} overdue`,
         href: `/app/invoices/${i.id}`, amount: { currency: i.currency, amountMinor: i.outstandingMinor }, rank: 200 + 90 - Math.min(late, 90),
+      });
+    }
+    const dueSoon = await tenant.invoice.findMany({
+      where: { status: "issued", outstandingMinor: { gt: 0 }, dueOn: { gte: day, lte: dateValue(addDays(today, 7)) }, disputedAt: null },
+      orderBy: { dueOn: "asc" },
+      take: limit,
+      include: { customer: { select: { displayName: true } } },
+    });
+    for (const i of dueSoon) {
+      const left = daysBetween(i.dueOn, day);
+      items.push({
+        kind: "Invoice", title: i.customer.displayName, reason: `${i.number} is due ${left === 0 ? "today" : `in ${left} ${left === 1 ? "day" : "days"}`}`,
+        href: `/app/invoices/${i.id}`, amount: { currency: i.currency, amountMinor: i.outstandingMinor }, rank: 450 + left,
       });
     }
     if (can.quotes) {

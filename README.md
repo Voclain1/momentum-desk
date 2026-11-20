@@ -101,6 +101,8 @@ End-to-end tests read emails from `e2e/.outbox/emails.jsonl` (`EMAIL_TEST_OUTBOX
 - Terms and privacy drafts for legal review (D40)
 - Security review (`docs/security-review.md`): dependency upgrades, rate limits, security headers; axe accessibility checks and a phone-width layout test
 - Operations (`docs/runbooks.md`): monitoring including the background worker (`/api/health?strict=1`), incidents, support, and a recorded restore drill
+- Data rights (D25): full workspace export, customer erasure keeping issued documents as financial records, workspace closure with 30 days to cancel
+- MVP acceptance (spec §22): `lib/mvp-acceptance.db.test.ts` runs the whole flow (lead → quote in USD → customer acceptance → invoice → part payment → base-currency receivables → overdue reminder that stops once paid) through the app's services and the worker
 - Still to do: legal review of the drafts; the visual design system; a pilot with businesses in more than one market
 
 **Email** needs `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in Resend). Without them, development prints sign-in, reset and invitation links in the server log, and production refuses to send them; email and password sign-in still works.

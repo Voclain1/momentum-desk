@@ -37,7 +37,7 @@ describe("the dashboard", () => {
     };
     const old = await invoice("NGN", "100000", "2026-10-15");
     await invoice("USD", "300", "2026-11-19");
-    await invoice("NGN", "50000", "2026-12-01");
+    await invoice("NGN", "50000", "2026-11-25");
     await recordPayment(data, actor, old.id, { amount: "40000", method: "cash", receivedOn: "2026-11-05" }, { today: "2026-11-05", locale: "en-NG" });
     const quote = await createQuote(data, actor, { customerId: customer.id, currency: "NGN", taxMode: "exclusive", issuedOn: "2026-11-10", expiresOn: "2026-11-22", lines: [{ description: "Panels", quantity: "1", unitPrice: "250000" }] });
     await sendQuote(data, actor, quote.id, 1, { today: "2026-11-10" });
@@ -52,6 +52,7 @@ describe("the dashboard", () => {
       ["Invoice", "INV-0001 is 36 days overdue"],
       ["Invoice", "INV-0002 is 1 day overdue"],
       ["Quote", "Q-0001 expires in 2 days (not opened yet)"],
+      ["Invoice", "INV-0003 is due in 5 days"],
       ["Lead", "Follow-up 2 days late"],
     ]);
     expect((await recentFlow(data, organizationId)).find((f) => f.label === "Leads created")?.count).toBe(2);
