@@ -23,7 +23,7 @@ export default async function OnboardingPage() {
           MomentumDesk
         </Link>
         <h1 className="mt-10 text-3xl font-bold tracking-tight">Set up your workspace</h1>
-        <p className="mt-2 text-sm text-[#718087]">
+        <p className="mt-2 text-sm text-[#647178]">
           These settings are independent: a business can be registered in one country, report in
           another currency and invoice customers in several. You can change them later.
         </p>

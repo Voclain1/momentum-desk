@@ -1,5 +1,7 @@
 "use server";
 
+import { rateLimit } from "@/lib/security/server";
+
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { addActivity } from "@/lib/activities/service";
@@ -30,7 +32,8 @@ interface Context {
   context: { today: string; locale: string; seller: string };
 }
 
-async function run<T>(permission: Permission, work: (c: Context) => Promise<T>): Promise<AiResult<T>> {
+/** `ai`: the work calls the AI, so it counts against the per-person rate limit. */
+async function run<T>(permission: Permission, work: (c: Context) => Promise<T>, { ai = true } = {}): Promise<AiResult<T>> {
   let tenant;
   try {
     tenant = await requireTenant(permission);
@@ -39,6 +42,9 @@ async function run<T>(permission: Permission, work: (c: Context) => Promise<T>):
     throw error;
   }
   const { organization } = tenant;
+  if (ai && !(await rateLimit("ai", `user:${tenant.user.id}`)).allowed) {
+    return { status: "error", message: "You have asked Momentum AI a lot in the last few minutes. Wait a little and try again." };
+  }
   try {
     const result = await work({
       actor: { organizationId: organization.id, userId: tenant.user.id, timezone: organization.timezone },
@@ -63,7 +69,7 @@ export async function logLeadActivityAction(leadId: string, kind: "note" | "emai
     await addActivity(tenantData, actor, { type: "lead", id: leadId }, { kind, body });
     revalidatePath(`/app/leads/${leadId}`);
     return null;
-  });
+  }, { ai: false });
 }
 
 export async function quoteAssistAction(request: string, currency: string): Promise<AiResult<QuoteSuggestion>> {
@@ -87,7 +93,7 @@ export async function sendCollectionMessageAction(invoiceId: string, message: { 
     const sent = await sendCollectionMessage(tenantData, actor, invoiceId, message, { email: emailSender, appUrl, seller: context.seller });
     revalidatePath(`/app/invoices/${invoiceId}`);
     return sent;
-  });
+  }, { ai: false });
 }
 
 export async function receivablesSummaryAction(): Promise<AiResult<ReceivablesSummary>> {
@@ -101,6 +107,6 @@ export async function updateAiSettingsAction(_: SettingsState, form: FormData): 
     await updateAiSettings(tenantData, actor, { enabled: form.get("enabled") === "on", monthlyLimit: String(form.get("monthlyLimit") ?? "") }, aiDeps.serverLimit);
     revalidatePath("/app/settings");
     return null;
-  });
+  }, { ai: false });
   return result.status === "ok" ? { status: "saved", message: "AI settings saved." } : result;
 }

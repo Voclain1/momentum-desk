@@ -1,5 +1,7 @@
 "use server";
 
+import { rateLimit } from "@/lib/security/server";
+
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { EmailNotConfiguredError } from "@/lib/email";
@@ -35,6 +37,8 @@ async function answer(token: string, work: (visitor: Visitor) => Promise<PublicR
 }
 
 export async function requestCodeAction(token: string, _: PublicState, form: FormData): Promise<PublicState> {
+  const limited = await rateLimit("acceptanceCode");
+  if (!limited.allowed) return { status: "done", ok: false, message: "Too many codes were requested from your connection. Wait a few minutes and try again." };
   return answer(token, (visitor) =>
     requestAcceptanceCode(deps, token, { name: String(form.get("name") ?? ""), email: String(form.get("email") ?? "") || undefined }, visitor),
   );

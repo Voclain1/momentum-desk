@@ -1372,3 +1372,15 @@ model ProductEvent {
   @@index([organizationId, name, occurredAt])
   @@map("productEvent")
 }
+
+/// Fixed-window request counters for public and costly endpoints
+/// (spec §12). The key is a hash of the scope and the client's IP address or
+/// user, never the address itself. Not organization data.
+model RateLimitBucket {
+  key         String   @id
+  windowStart DateTime @db.Timestamptz(3)
+  count       Int
+
+  @@index([windowStart])
+  @@map("rateLimitBucket")
+}

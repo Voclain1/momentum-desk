@@ -61,7 +61,7 @@ export function SignInForm({ next }: { next: string }) {
               setMode(option);
               setError("");
             }}
-            className={`rounded-md py-1.5 font-semibold ${mode === option ? "bg-white shadow-sm" : "text-[#718087]"}`}
+            className={`rounded-md py-1.5 font-semibold ${mode === option ? "bg-white shadow-sm" : "text-[#5c676d]"}`}
           >
             {option === "password" ? "Password" : "Email me a link"}
           </button>

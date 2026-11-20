@@ -1,3 +1,5 @@
+import { TooManyRequests } from "@/app/_documents/too-many";
+import { rateLimit } from "@/lib/security/server";
 import { documentBrand } from "@/lib/branding/service";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -17,6 +19,8 @@ export const metadata: Metadata = {
 
 export default async function PublicQuotePage({ params }: PageProps<"/q/[token]">) {
   const { token } = await params;
+  const limited = await rateLimit("documentView");
+  if (!limited.allowed) return <TooManyRequests retryAfter={limited.retryAfter} />;
   const view = await openQuote({ data: tenantData, links: publicLinks, email: emailSender }, token, await visitorFrom());
   // Unknown, revoked and draft links all look the same.
   if (view.state === "invalid") notFound();

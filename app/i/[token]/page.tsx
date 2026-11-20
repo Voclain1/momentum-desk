@@ -1,3 +1,5 @@
+import { TooManyRequests } from "@/app/_documents/too-many";
+import { rateLimit } from "@/lib/security/server";
 import { documentBrand } from "@/lib/branding/service";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
@@ -30,6 +32,8 @@ const RETURN_MESSAGES: Record<string, { tone: string; text: string }> = {
 
 export default async function PublicInvoicePage({ params, searchParams }: PageProps<"/i/[token]">) {
   const { token } = await params;
+  const limited = await rateLimit("documentView");
+  if (!limited.allowed) return <TooManyRequests retryAfter={limited.retryAfter} />;
   const attempt = (await searchParams).attempt;
   // Back from checkout: ask the provider's API (server to server). The redirect itself proves nothing.
   const returned = typeof attempt === "string" ? await confirmReturn(onlineDeps, token, attempt) : null;

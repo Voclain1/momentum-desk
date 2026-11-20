@@ -4,3 +4,8 @@ allowBuilds:
   prisma: true
   sharp: false
   unrs-resolver: false
+# Security fixes inside the Prisma CLI's dependencies (pnpm audit); remove
+# once Prisma ships with these versions.
+overrides:
+  effect: ^3.22.1
+  fast-uri: ^3.1.9

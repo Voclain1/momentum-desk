@@ -14,7 +14,7 @@ export function Field({
         {...input}
         className="w-full rounded-lg border border-[#d5ddd9] px-3 py-2.5 text-sm outline-none focus:border-[#167a62] focus:ring-2 focus:ring-[#167a62]/20"
       />
-      {hint ? <span className="mt-1 block text-xs text-[#718087]">{hint}</span> : null}
+      {hint ? <span className="mt-1 block text-xs text-[#647178]">{hint}</span> : null}
     </label>
   );
 }
@@ -51,7 +51,7 @@ export function Heading({ title, children }: { title: string; children?: ReactNo
   return (
     <div className="mb-6">
       <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-      {children ? <p className="mt-1.5 text-sm text-[#718087]">{children}</p> : null}
+      {children ? <p className="mt-1.5 text-sm text-[#647178]">{children}</p> : null}
     </div>
   );
 }

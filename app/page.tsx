@@ -45,14 +45,14 @@ export default function MarketingHome() {
         <div className="mt-10">
           <Link
             href="/sign-up"
-            className="inline-block rounded-lg bg-[#2f8d73] px-5 py-3 text-sm font-bold text-white hover:bg-[#35a083]"
+            className="inline-block rounded-lg bg-[#2b836a] px-5 py-3 text-sm font-bold text-white hover:bg-[#23705b]"
           >
             Create your workspace →
           </Link>
         </div>
       </section>
 
-      <footer className="mx-auto w-full max-w-5xl px-4 py-6 text-xs text-[#739087] sm:px-6">
+      <footer className="mx-auto w-full max-w-5xl px-4 py-6 text-xs text-[#a9bdb6] sm:px-6">
         Early access · Pilot in progress · <Link href="/terms" className="underline">Terms</Link> ·{" "}
         <Link href="/privacy" className="underline">Privacy</Link>
       </footer>
