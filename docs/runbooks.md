@@ -64,5 +64,5 @@ Pilot support goes to [SUPPORT EMAIL], answered within [one working day].
 | Refund | From the payment on the invoice page: through the provider, or recorded when paid back another way |
 | Reminders went to the wrong person or too often | Stop them for that customer (customer page), or pause the invoice's collection. Settings shows the steps and the minimum gap |
 | Locked out | Use "Forgot password" or a sign-in link. An owner can re-invite a removed member |
-| Export or delete my data | Owners export customers and leads as CSV (Import page). Deletion and workspace closure: handle by hand until D25 is decided; confirm the request with the workspace owner by email first |
+| Export or delete my data | Owners and admins: Settings → Your data → Download everything. A customer asking to be forgotten: the customer's page → Erase personal data (owners and admins). Closing the workspace: Settings → Close workspace (owners); deleted 30 days later unless cancelled |
 | AI not available | Settings → Momentum AI shows whether it is on and this month's use. The limit resets monthly; owners can raise it up to the server's `AI_MONTHLY_LIMIT` |

@@ -92,7 +92,11 @@ export type AuditAction =
   | "reminders.opted_in"
   | "ai.settings_updated"
   | "branding.updated"
-  | "collection.message_sent";
+  | "collection.message_sent"
+  | "workspace.exported"
+  | "customer.erased"
+  | "workspace.closure_requested"
+  | "workspace.closure_cancelled";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 

@@ -17,7 +17,7 @@ expansion and after any change to authentication, payments or tenant access.
 | Public document tokens | Done | 256-bit random, stored as SHA-256 only, revocable (D16); a token reads exactly one link row | `lib/quotes/public.db.test.ts`, `lib/invoices/public.db.test.ts` |
 | Audit logs | Done | `lib/audit`: financial, permission, settings, branding and AI-settings changes, in the same transaction as the change | Service tests |
 | Backups and tested recovery | Done | `deploy/backup.sh` nightly; restore drill in `docs/runbooks.md` | Recorded drill |
-| Data export and deletion/retention | Partly | CSV export of customers and leads, PDFs of documents; archive instead of delete (D25). Workspace closure and erasure are a manual runbook step until D25 erasure is decided | — |
+| Data export and deletion/retention | Done | Full workspace export (`/app/export`, ZIP of CSVs and PDFs); customer erasure keeping issued documents as financial records; workspace closure after 30 days (D25) | `lib/transfer/workspace-export.db.test.ts`, `lib/customers/erasure.db.test.ts`, `lib/workspaces/closure.db.test.ts`, `e2e/data-rights.spec.ts` |
 | Error monitoring and alerting | Done | Sentry (D8), health check for uptime monitoring | `e2e/health.spec.ts` |
 | Dependency and security updates | Done | `pnpm audit --prod` clean on 2026-11-20 (Next.js 16.4.6, zod 4.6.7, Prisma 7.10.1; `effect` and `fast-uri` overridden in `pnpm-workspace.yaml`). One moderate advisory remains in lint-only tooling (`minimatch` via eslint-config-next). Check monthly and on every advisory: `docs/runbooks.md` | CI |
 | Privacy disclosures for AI and integrations | Draft | `/privacy` and `/terms` (D40), awaiting legal review | `e2e/legal.spec.ts` |

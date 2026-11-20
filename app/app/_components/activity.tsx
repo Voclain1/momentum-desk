@@ -85,6 +85,10 @@ export const LABELS: Record<AuditAction, string> = {
   "ai.settings_updated": "changed the Momentum AI settings",
   "branding.updated": "changed the workspace logo or colour",
   "collection.message_sent": "emailed a customer about an invoice",
+  "workspace.exported": "downloaded a full export of the workspace",
+  "customer.erased": "erased a customer's personal data",
+  "workspace.closure_requested": "asked to close the workspace",
+  "workspace.closure_cancelled": "cancelled closing the workspace",
 };
 
 /** Latest audit entries for the current workspace, read through the tenant guard. */

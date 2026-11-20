@@ -2,6 +2,7 @@ import type { DbClient } from "@/lib/db/client";
 import { todayIn } from "@/lib/dates";
 import type { Job } from "@/lib/generated/prisma/client";
 import type { TenantData } from "@/lib/tenant/core";
+import { purgeClosedWorkspaces } from "@/lib/workspaces/closure";
 import { claimJobs, completeJob, failJob, heartbeat, organizationIds } from "./queue-core";
 import { enqueue } from "./queue";
 
@@ -85,6 +86,8 @@ export async function runWorker(deps: WorkerDeps, { intervalMs = 15_000, signal 
     try {
       await heartbeat(deps.db, deps.workerId, deps.now?.() ?? new Date());
       if (Date.now() - lastSchedule > 5 * 60_000) {
+        const purged = await purgeClosedWorkspaces(deps.db, deps.now?.() ?? new Date());
+        if (purged) deps.log?.("closed workspaces deleted", { count: purged });
         await scheduleDaily(deps);
         lastSchedule = Date.now();
       }

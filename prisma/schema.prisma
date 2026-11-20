@@ -120,6 +120,10 @@ model Organization {
   metadata  String?
   createdAt DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt DateTime? @updatedAt @db.Timestamptz(3)
+  /// An owner asked to close the workspace (D25); it and all its data are
+  /// deleted at deleteAfter unless an owner cancels first.
+  closureRequestedAt DateTime? @db.Timestamptz(3)
+  deleteAfter        DateTime? @db.Timestamptz(3)
 
   // Global settings (spec §5.1). None is inferred from another: a company can
   // be in one country, report in another currency and invoice in several.
@@ -298,6 +302,8 @@ model Customer {
   notes             String?
   /// Archived customers are hidden from lists but keep their history.
   archivedAt        DateTime? @db.Timestamptz(3)
+  /// Personal data removed on request (D25, lib/customers/erasure.ts).
+  erasedAt          DateTime? @db.Timestamptz(3)
   /// Payment reminders stop for this customer (spec §7.7 opt-out).
   remindersOptedOutAt DateTime? @db.Timestamptz(3)
   /// "customer" (from a reminder's invoice page) or "staff".

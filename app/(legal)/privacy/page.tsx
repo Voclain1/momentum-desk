@@ -43,13 +43,15 @@ export default function PrivacyPage() {
       <h2>How long we keep data</h2>
       <p>
         A business&apos;s data is kept while its workspace is active. Customers and leads are archived rather than deleted so financial
-        history stays complete. Backups are kept for [BACKUP RETENTION, e.g. 14 days]. When a workspace is closed, its data is deleted
-        within [DELETION PERIOD] except where the law requires financial records to be kept for longer.
+        history stays complete. When a customer asks to be erased, their details, contacts, notes and visit records are removed; issued
+        quotes and invoices, payments and acceptance records are kept as sent, because they are financial records the business may be
+        required to keep. When an owner closes a workspace, it and all its data are deleted 30 days later (an owner can cancel until
+        then). Backups are kept for [BACKUP RETENTION, e.g. 14 days] and then expire.
       </p>
 
       <h2>Your rights</h2>
       <p>
-        You can see and correct your account details in the app, and owners and admins can export customers and leads as CSV. To ask
+        You can see and correct your account details in the app, and owners and admins can download everything in their workspace (Settings → Your data). To ask
         for a copy of your data, its correction or deletion, or to object to processing, contact [PRIVACY CONTACT EMAIL]. If you are a
         customer of a business that uses MomentumDesk, please contact that business first; we will help it respond. You may also
         complain to [DATA PROTECTION AUTHORITY for the relevant country, e.g. NDPC in Nigeria, ODPC in Ghana or Kenya, the Information

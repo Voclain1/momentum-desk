@@ -14,6 +14,8 @@ import { RecordWork } from "../../work/record-work";
 import { setArchivedAction, updateCustomerAction } from "../actions";
 import { CustomerForm } from "../customer-form";
 import { ArchiveButton, Contacts } from "./customer-panels";
+import { ErasePanel } from "./erase-panel";
+import { eraseCustomerAction } from "../actions";
 import { StepButton } from "../../invoices/panels";
 import { setOptOutAction } from "../../receivables/actions";
 
@@ -33,7 +35,7 @@ export default async function CustomerPage({ params }: PageProps<"/app/customers
     throw error;
   }
 
-  const canEdit = tenant.can("customers:write");
+  const canEdit = tenant.can("customers:write") && !customer.erasedAt;
   const canSeeLeads = tenant.can("sales:read");
   const duplicates = (await customerDuplicates(tenantData, tenant.organization.id, customer.id)).filter(
     (d) => d.type === "customer" || canSeeLeads,
@@ -146,6 +148,11 @@ export default async function CustomerPage({ params }: PageProps<"/app/customers
           <PossibleDuplicates duplicates={duplicates} />
         </div>
       </section>
+      {customer.erasedAt ? (
+        <p role="note" className="settings-message saved">Personal data erased on {date.format(customer.erasedAt)}. Issued documents and payments are kept as financial records.</p>
+      ) : tenant.can("data:export") && tenant.can("customers:write") ? (
+        <ErasePanel name={customer.displayName} action={eraseCustomerAction.bind(null, customer.id)} />
+      ) : null}
       <RecordWork tenant={tenant} parent={{ type: "customer", id: customer.id }} canWrite={canEdit} />
     </>
   );

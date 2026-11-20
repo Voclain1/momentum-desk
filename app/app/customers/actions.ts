@@ -11,6 +11,7 @@ import {
   updateContact,
   updateCustomer,
 } from "@/lib/customers/service";
+import { eraseCustomer } from "@/lib/customers/erasure";
 import { InputValidationError, RecordConflictError, RecordNotFoundError } from "@/lib/errors";
 import { tenantData } from "@/lib/tenant";
 import { requireTenant } from "@/lib/tenant/server";
@@ -110,5 +111,22 @@ export async function removeContactAction(customerId: string, contactId: string)
     await removeContact(tenantData, actor, contactId);
     revalidatePath(`/app/customers/${customerId}`);
     return { status: "saved", message: "Contact removed." };
+  });
+}
+
+/** Erases a customer's personal data (D25). Owners and admins (data:export) only. */
+export async function eraseCustomerAction(id: string, _: FormState, form: FormData): Promise<FormState> {
+  try {
+    const tenant = await requireTenant("data:export");
+    if (!tenant.can("customers:write")) throw new AuthorizationError(403);
+  } catch (error) {
+    if (error instanceof AuthorizationError) return { status: "error", message: "Only owners and admins can erase a customer." };
+    throw error;
+  }
+  return write(async (actor) => {
+    await eraseCustomer(tenantData, actor, id, String(form.get("confirmation") ?? ""));
+    revalidatePath(`/app/customers/${id}`);
+    revalidatePath("/app/customers");
+    return { status: "saved", message: "Personal data erased." };
   });
 }
