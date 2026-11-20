@@ -117,4 +117,11 @@ test("an owner sets up reminders and rates, works an invoice's collection, and a
   await expect(customer.getByText("You will not get payment reminders from this business.")).toBeVisible();
   await page.goto(customerUrl);
   await expect(page.getByLabel("Payment reminders")).toContainText("by the customer");
+
+  // The metrics page counts what happened, from the workspace's own events.
+  await page.goto("/app/metrics?days=30");
+  const happened = page.getByRole("region", { name: "Events" });
+  await expect(happened.getByRole("row", { name: "Invoices created 1" })).toBeVisible();
+  await expect(happened.getByRole("row", { name: "Invoices viewed 1" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Conversion" })).toContainText("Quote acceptance: —");
 });

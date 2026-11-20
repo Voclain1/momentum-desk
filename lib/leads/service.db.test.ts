@@ -106,9 +106,9 @@ describe("leads", () => {
     expect(
       (await audit(actor.organizationId)).filter((e) => e.action === "lead.stage_changed").map((e) => e.metadata),
     ).toEqual([
-      { from: "qualified", to: "won" },
-      { from: "won", to: "lost" },
-      { from: "lost", to: "qualified" },
+      { from: "qualified", to: "won", toKind: "won" },
+      { from: "won", to: "lost", toKind: "lost" },
+      { from: "lost", to: "qualified", toKind: "open" },
     ]);
   });
 

@@ -278,7 +278,7 @@ export async function updateLead(
         actorUserId: actor.userId,
         targetType: "lead",
         targetId: id,
-        metadata: { from: current.stage.key, to: stage.key },
+        metadata: { from: current.stage.key, to: stage.key, toKind: stage.kind },
       });
     }
     return (await tenant.lead.findUnique({ where: { id } }))!;
@@ -308,7 +308,7 @@ export async function moveLead(data: TenantData, actor: Actor, id: string, stage
       actorUserId: actor.userId,
       targetType: "lead",
       targetId: id,
-      metadata: { from: current.stage.key, to: stage.key },
+      metadata: { from: current.stage.key, to: stage.key, toKind: stage.kind },
     });
     return lead;
   });

@@ -3,7 +3,8 @@ import type {
   Activity, AuditLog, CollectionNote, Contact, Customer, ExchangeRate, InvoiceCollection, PromiseToPay, DocumentSequence, Invoice, Job, InvoiceEvent, InvoiceItem, InvoiceLink, InvoiceSettings, Lead, Payment, PaymentAllocation, PaymentAttempt, ProviderConnection, ProviderEvent, Refund, ReminderExecution,
   AiSettings,
   AiInteraction,
-  OrganizationBranding, ReminderStep, PipelineStage, Prisma, Product, ProductPrice, Quote,
+  OrganizationBranding,
+  ProductEvent, ReminderStep, PipelineStage, Prisma, Product, ProductPrice, Quote,
   QuoteAcceptanceCode, QuoteEvent, QuoteItem, QuoteLink,
   Task, TaxRate,
 } from "@/lib/generated/prisma/client";
@@ -49,6 +50,7 @@ interface TenantModelTypes {
   aiSettings: { create: Prisma.AiSettingsUncheckedCreateInput; row: AiSettings };
   aiInteraction: { create: Prisma.AiInteractionUncheckedCreateInput; row: AiInteraction };
   organizationBranding: { create: Prisma.OrganizationBrandingUncheckedCreateInput; row: OrganizationBranding };
+  productEvent: { create: Prisma.ProductEventUncheckedCreateInput; row: ProductEvent };
 }
 
 /** Create input without the organization, which tenantDb always sets. */

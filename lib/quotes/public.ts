@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics/events";
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
@@ -109,6 +110,7 @@ export async function openQuote(deps: PublicDeps, token: string, visitor: Visito
     if (quote.status === "sent" && !quote.viewedAt) {
       await tenant.quote.updateMany({ where: { id: quote.id, viewedAt: null }, data: { viewedAt: now } });
     }
+    if (quote.status !== "draft") await track(tenant, "quote_viewed", { entityType: "quote", entityId: quote.id, at: now });
     const recent = await tenant.quoteEvent.findFirst({
       where: { quoteId: quote.id, linkId: link.id, kind: "viewed", createdAt: { gt: new Date(now.getTime() - VIEW_WINDOW_MS) } },
     });

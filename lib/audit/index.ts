@@ -1,3 +1,4 @@
+import { trackAudited } from "@/lib/analytics/events";
 import type { TenantDb } from "@/lib/tenant/core";
 
 /**
@@ -105,7 +106,9 @@ export interface AuditEntry {
   metadata?: { [key: string]: JsonValue };
 }
 
-export function recordAudit(tenant: TenantDb, entry: AuditEntry) {
+export async function recordAudit(tenant: TenantDb, entry: AuditEntry) {
+  // Product analytics that follow from this change, in the same transaction (lib/analytics).
+  await trackAudited(tenant, entry);
   return tenant.auditLog.create({
     data: {
       action: entry.action,

@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics/events";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
 import { dateValue } from "@/lib/dates";
@@ -263,6 +264,14 @@ export async function reviewReceivables(data: TenantData, organizationId: string
       await recordAudit(tenant, { action: "promise.resolved", actorUserId: null, targetType: "invoice", targetId: promise.invoiceId, metadata: { outcome: ok ? "kept" : "broken" } });
       if (ok) kept++;
       else broken++;
+    }
+    // Invoices past their due date with money still owed become overdue, once each.
+    const overdue = await tenant.invoice.findMany({
+      where: { status: "issued", outstandingMinor: { gt: 0 }, dueOn: { lt: dateValue(today) } },
+      select: { id: true, dueOn: true },
+    });
+    for (const invoice of overdue) {
+      await track(tenant, "invoice_overdue", { entityType: "invoice", entityId: invoice.id, at: new Date(invoice.dueOn.getTime() + 86_400_000) });
     }
     const { count: resumed } = await tenant.invoiceCollection.updateMany({
       where: { status: "paused", pausedUntil: { lte: dateValue(today) } },

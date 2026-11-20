@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics/events";
 import type { Invoice, InvoiceItem } from "@/lib/generated/prisma/client";
 import { todayIn } from "@/lib/dates";
 import type { TenantData } from "@/lib/tenant/core";
@@ -39,6 +40,7 @@ export async function openInvoice(deps: InvoicePublicDeps, token: string, visito
     if (invoice.status === "issued" && !invoice.viewedAt) {
       await tenant.invoice.updateMany({ where: { id: invoice.id, viewedAt: null }, data: { viewedAt: now } });
     }
+    if (invoice.status === "issued") await track(tenant, "invoice_viewed", { entityType: "invoice", entityId: invoice.id, at: now });
     const recent = await tenant.invoiceEvent.findFirst({
       where: { invoiceId: invoice.id, linkId: link.id, createdAt: { gt: new Date(now.getTime() - VIEW_WINDOW_MS) } },
     });

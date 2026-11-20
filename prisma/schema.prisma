@@ -179,6 +179,7 @@ model Organization {
   aiSettings      AiSettings?
   aiInteractions  AiInteraction[]
   branding        OrganizationBranding?
+  productEvents   ProductEvent[]
   reminders       ReminderExecution[]
 
   @@map("organization")
@@ -1348,4 +1349,26 @@ model OrganizationBranding {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("organizationBranding")
+}
+
+/// Product analytics (spec §17, decision D41): what happened, to which
+/// record, when. Ids only: never names, emails, amounts or free text.
+model ProductEvent {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  /// e.g. "quote_sent". See lib/analytics/events.ts.
+  name           String
+  entityType     String
+  entityId       String
+  /// The member who acted; null for customers and the system.
+  userId         String?
+  /// Makes an event happen once: "<name>:<record>" for firsts, the causing record's id otherwise.
+  dedupeKey      String
+  occurredAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, dedupeKey])
+  @@index([organizationId, name, occurredAt])
+  @@map("productEvent")
 }
